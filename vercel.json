@@ -1,3 +1,5 @@
 {
+  "buildCommand": "echo \"const SIA_USER = '$SIA_USER'; const SIA_PASS = '$SIA_PASS'; const SIA_API_URL = '$SIA_API_URL';\" > config.js",
+  "outputDirectory": ".",
   "rewrites": [{ "source": "/", "destination": "/cobertura.html" }]
 }

@@ -332,10 +332,7 @@
             if (detail.red) {
               detailHtml += `<p class="mb-1 small"><span class="text-muted">Nombre de red:</span> <strong>${escapeHtml(detail.red)}</strong></p>`;
             }
-            const rawVels = detail.velocidades;
-            const vels = Array.isArray(rawVels) ? rawVels
-              : typeof rawVels === 'string' ? rawVels.split(',').map(v => v.trim()).filter(Boolean)
-              : [];
+            const vels = detail.perfiles ? Object.keys(detail.perfiles) : [];
             if (vels.length) {
               const badges = vels.map(v => `<span class="badge bg-primary ms-1">${escapeHtml(String(v))}</span>`).join('');
               detailHtml += `<p class="mb-3 small"><span class="text-muted">Velocidades:</span>${badges}</p>`;

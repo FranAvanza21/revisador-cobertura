@@ -25,161 +25,158 @@
   </style>
 </head>
 <body class="bg-light">
-  <div class="container py-4" style="max-width: 620px;">
+  <div class="container-fluid py-4" style="max-width: 1100px;">
+    <div class="row g-4 align-items-start">
 
-    <div id="panel-main" class="card shadow-sm">
-      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <strong>Comprobador de Cobertura de Red</strong>
+      <!-- COLUMNA IZQUIERDA: FORMULARIO -->
+      <div class="col-12 col-lg-6">
+        <div id="panel-main" class="card shadow-sm">
+          <div class="card-header bg-primary text-white">
+            <strong>Comprobador de Cobertura de Red</strong>
+          </div>
+          <div class="card-body">
+
+            <!-- PROVINCIA -->
+            <div class="mb-3">
+              <label for="sel-provincia" class="form-label fw-semibold">
+                <span class="step-badge">0</span>Provincia
+              </label>
+              <select id="sel-provincia" class="form-select" disabled>
+                <option value="">Cargando...</option>
+              </select>
+              <div id="err-provincia" class="text-danger small mt-1" hidden></div>
+            </div>
+
+            <!-- POBLACIÓN -->
+            <div class="mb-3">
+              <label for="sel-poblacion" class="form-label fw-semibold">
+                <span class="step-badge">1</span>Población
+              </label>
+              <select id="sel-poblacion" class="form-select" disabled>
+                <option value="">Seleccione una provincia primero</option>
+              </select>
+              <div id="err-poblacion" class="text-danger small mt-1" hidden></div>
+            </div>
+
+            <!-- TIPO DE VÍA -->
+            <div class="mb-3">
+              <label for="sel-tipo-via" class="form-label fw-semibold">
+                <span class="step-badge">2</span>Tipo de Vía
+              </label>
+              <select id="sel-tipo-via" class="form-select" disabled>
+                <option value="">Seleccione una población primero</option>
+              </select>
+              <div id="err-tipo-via" class="text-danger small mt-1" hidden></div>
+            </div>
+
+            <!-- VÍA -->
+            <div class="mb-3">
+              <label for="sel-via" class="form-label fw-semibold">
+                <span class="step-badge">3</span>Vía
+              </label>
+              <input type="search" id="filter-via" class="form-control form-control-sm mb-1"
+                placeholder="Filtrar vías..." disabled autocomplete="off" aria-label="Filtrar vías">
+              <select id="sel-via" class="form-select" disabled size="5">
+                <option value="">Seleccione un tipo de vía primero</option>
+              </select>
+              <div id="err-via" class="text-danger small mt-1" hidden></div>
+            </div>
+
+            <!-- NÚMERO -->
+            <div class="mb-3">
+              <label for="sel-numero" class="form-label fw-semibold">
+                <span class="step-badge">4</span>Número
+              </label>
+              <select id="sel-numero" class="form-select" disabled>
+                <option value="">Seleccione una vía primero</option>
+              </select>
+              <div id="err-numero" class="text-danger small mt-1" hidden></div>
+            </div>
+
+            <!-- PISO -->
+            <div class="mb-3">
+              <label for="sel-piso" class="form-label fw-semibold">
+                <span class="step-badge">5</span>Piso
+                <span class="text-muted fw-normal small">(opcional)</span>
+              </label>
+              <select id="sel-piso" class="form-select" disabled>
+                <option value="">Seleccione un número primero</option>
+              </select>
+              <div id="err-piso" class="text-danger small mt-1" hidden></div>
+            </div>
+
+            <!-- SPINNER -->
+            <div id="spinner" class="text-center text-muted my-3" hidden>
+              <div class="spinner-border spinner-border-sm text-primary me-2" role="status" aria-hidden="true"></div>
+              <span class="small">Cargando...</span>
+            </div>
+
+            <!-- BOTÓN PRINCIPAL -->
+            <div class="d-grid">
+              <button id="btn-check" class="btn btn-primary" disabled>
+                Comprobar cobertura
+              </button>
+            </div>
+
+          </div>
+        </div>
       </div>
-      <div class="card-body">
 
-        <!-- PROVINCIA -->
-        <div class="mb-3">
-          <label for="sel-provincia" class="form-label fw-semibold">
-            <span class="step-badge">0</span>Provincia
-          </label>
-          <select id="sel-provincia" class="form-select" disabled>
-            <option value="">Cargando...</option>
-          </select>
-          <div id="err-provincia" class="text-danger small mt-1" hidden></div>
+      <!-- COLUMNA DERECHA: RESULTADO -->
+      <div class="col-12 col-lg-6" id="col-result" hidden>
+        <div class="card shadow-sm">
+          <div class="card-header bg-secondary text-white">
+            <strong>Resultado</strong>
+          </div>
+          <div class="card-body">
+            <div id="result-badge"></div>
+            <div id="result-details"></div>
+            <button id="btn-reset" class="btn btn-outline-secondary btn-sm mt-3">
+              Nueva búsqueda
+            </button>
+          </div>
         </div>
-
-        <!-- POBLACIÓN -->
-        <div class="mb-3">
-          <label for="sel-poblacion" class="form-label fw-semibold">
-            <span class="step-badge">1</span>Población
-          </label>
-          <select id="sel-poblacion" class="form-select" disabled>
-            <option value="">Seleccione una provincia primero</option>
-          </select>
-          <div id="err-poblacion" class="text-danger small mt-1" hidden></div>
-        </div>
-
-        <!-- TIPO DE VÍA -->
-        <div class="mb-3">
-          <label for="sel-tipo-via" class="form-label fw-semibold">
-            <span class="step-badge">2</span>Tipo de Vía
-          </label>
-          <select id="sel-tipo-via" class="form-select" disabled>
-            <option value="">Seleccione una población primero</option>
-          </select>
-          <div id="err-tipo-via" class="text-danger small mt-1" hidden></div>
-        </div>
-
-        <!-- VÍA -->
-        <div class="mb-3">
-          <label for="sel-via" class="form-label fw-semibold">
-            <span class="step-badge">3</span>Vía
-          </label>
-          <input type="search" id="filter-via" class="form-control form-control-sm mb-1"
-            placeholder="Filtrar vías..." disabled autocomplete="off" aria-label="Filtrar vías">
-          <select id="sel-via" class="form-select" disabled size="5">
-            <option value="">Seleccione un tipo de vía primero</option>
-          </select>
-          <div id="err-via" class="text-danger small mt-1" hidden></div>
-        </div>
-
-        <!-- NÚMERO -->
-        <div class="mb-3">
-          <label for="sel-numero" class="form-label fw-semibold">
-            <span class="step-badge">4</span>Número
-          </label>
-          <select id="sel-numero" class="form-select" disabled>
-            <option value="">Seleccione una vía primero</option>
-          </select>
-          <div id="err-numero" class="text-danger small mt-1" hidden></div>
-        </div>
-
-        <!-- PISO -->
-        <div class="mb-3">
-          <label for="sel-piso" class="form-label fw-semibold">
-            <span class="step-badge">5</span>Piso
-            <span class="text-muted fw-normal small">(opcional)</span>
-          </label>
-          <select id="sel-piso" class="form-select" disabled>
-            <option value="">Seleccione un número primero</option>
-          </select>
-          <div id="err-piso" class="text-danger small mt-1" hidden></div>
-        </div>
-
-        <!-- SPINNER -->
-        <div id="spinner" class="text-center text-muted my-3" hidden>
-          <div class="spinner-border spinner-border-sm text-primary me-2" role="status" aria-hidden="true"></div>
-          <span class="small">Cargando...</span>
-        </div>
-
-        <!-- BOTÓN PRINCIPAL -->
-        <div class="d-grid">
-          <button id="btn-check" class="btn btn-primary" disabled>
-            Comprobar cobertura
-          </button>
-        </div>
-
-        <!-- RESULTADO -->
-        <div id="result-area" hidden>
-          <hr class="my-4">
-          <div id="result-badge"></div>
-          <div id="result-details"></div>
-          <button id="btn-reset" class="btn btn-outline-secondary btn-sm mt-2">
-            Nueva búsqueda
-          </button>
-        </div>
-
       </div>
+
     </div>
   </div>
 
   <script>
     // ─── CONFIGURACIÓN ─────────────────────────────────────────────────────────
-    const BASE_URL   = (typeof SIA_API_URL !== 'undefined') ? SIA_API_URL : '';
-    const API_TOKEN  = '';       // Bearer token fijo; vacío → autologin con config.js
-    const DEBUG_MODE = false;    // true para activar logs en consola
+    const BASE_URL = (typeof SIA_API_URL !== 'undefined') ? SIA_API_URL : '';
+    const API_TOKEN      = '';
+    const DEBUG_MODE     = false;
 
-    // Valores de Estado que indican cobertura (ajustar con los valores reales de la API)
     const ESTADOS_CON_COBERTURA = ['ACTIVO', 'DISPONIBLE', 'CON COBERTURA', 'LIBERADO', 'SI', 'COMERCIALIZABLE'];
     const ESTADOS_SIN_COBERTURA = ['INACTIVO', 'SIN COBERTURA', 'NO COBERTURA', 'BAJA', 'ANULADO', 'NO'];
 
     // ─── UTILIDADES ────────────────────────────────────────────────────────────
     const debug = (...args) => { if (DEBUG_MODE) console.log('[COB]', ...args); };
 
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     // ─── GESTIÓN DE TOKEN ──────────────────────────────────────────────────────
     const auth = {
       _token: API_TOKEN || sessionStorage.getItem('token') || '',
-
-      get token() { return this._token; },
-
-      set token(val) {
-        this._token = val;
-        sessionStorage.setItem('token', val);
-      },
-
-      clear() {
-        this._token = '';
-        sessionStorage.removeItem('token');
-      },
-
-      hasToken() { return !!this._token; },
+      get token()  { return this._token; },
+      set token(v) { this._token = v; sessionStorage.setItem('token', v); },
+      clear()      { this._token = ''; sessionStorage.removeItem('token'); },
+      hasToken()   { return !!this._token; },
     };
 
     // ─── API SERVICE ───────────────────────────────────────────────────────────
     const apiService = {
 
-      /**
-       * GET autenticado genérico
-       * @param {string} path
-       * @param {URLSearchParams} [params]
-       * @returns {Promise<any>}
-       * @throws {{ status: number, body: string }}
-       */
       async get(path, params = new URLSearchParams()) {
         const qs  = params.toString();
         const url = `${BASE_URL}${path}${qs ? '?' + qs : ''}`;
         debug('GET', url);
         const res = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${auth.token}`,
-            'Accept': 'application/json',
-          },
+          headers: { 'Authorization': `Bearer ${auth.token}`, 'Accept': 'application/json' },
         });
         if (!res.ok) {
           const body = await res.text().catch(() => res.statusText);
@@ -188,16 +185,11 @@
         return res.json();
       },
 
-      /** @returns {Promise<Array<{Id, Poblacion, Provincia, UUIIEstimadas, Proyecto}>>} */
       async getProvincias() {
         const data = await this.get('/Cobertura/Provincias');
         return Array.isArray(data) ? data : [data];
       },
 
-      /**
-       * @param {string} [provincia]
-       * @returns {Promise<Array<{Id, Poblacion, Provincia, UUIIEstimadas, Proyecto}>>}
-       */
       async getPoblaciones(provincia = '') {
         const p = new URLSearchParams();
         if (provincia) p.set('provincia', provincia);
@@ -205,59 +197,44 @@
         return Array.isArray(data) ? data : [data];
       },
 
-      /**
-       * @param {string} poblacion
-       * @returns {Promise<string[]>}
-       */
       async getTipoVia(poblacion) {
         return this.get('/Cobertura/TipoVia', new URLSearchParams({ Poblacion: poblacion }));
       },
 
-      /**
-       * @param {string} poblacion
-       * @param {string} tipoVia
-       * @returns {Promise<string[]>}
-       */
       async getDomicilio(poblacion, tipoVia) {
         return this.get('/Cobertura/Domicilio', new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia }));
       },
 
-      /**
-       * @param {string} poblacion
-       * @param {string} tipoVia
-       * @param {string} via
-       * @returns {Promise<string[]>}
-       */
       async getNumero(poblacion, tipoVia, via) {
         return this.get('/Cobertura/Numero', new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia, Via: via }));
       },
 
-      /**
-       * @param {string} poblacion
-       * @param {string} tipoVia
-       * @param {string} via
-       * @param {string} numero
-       * @returns {Promise<string[]>}
-       */
       async getPisos(poblacion, tipoVia, via, numero) {
         return this.get('/Cobertura/Pisos', new URLSearchParams({
           Poblacion: poblacion, TipoVia: tipoVia, Via: via, Numero: numero,
         }));
       },
 
-      /**
-       * Consulta principal de cobertura
-       * @param {string} poblacion
-       * @param {string} tipoVia
-       * @param {string} via
-       * @param {string} numero
-       * @param {string} [pisos]
-       * @returns {Promise<Array<{Estado, CTO, Zona, TipoInstalacion, Planta, Puerta, DireccionCTO, Gescal37}>>}
-       */
       async getCobertura(poblacion, tipoVia, via, numero, pisos = '') {
         const p = new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia, Via: via, Numero: numero });
         if (pisos) p.set('Pisos', pisos);
         return this.get('/Cobertura', p);
+      },
+
+      // Devuelve null en caso de error (degradación sin bloqueo)
+      async getDetailUUII(idUuii) {
+        const url = `/api/detail-uuii?id=${encodeURIComponent(idUuii.trim())}`;
+        debug('GET (proxy)', url);
+        try {
+          const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${auth.token}`, 'Accept': 'application/json' },
+          });
+          if (!res.ok) return null;
+          return res.json();
+        } catch (e) {
+          debug('getDetailUUII error:', e);
+          return null;
+        }
       },
     };
 
@@ -288,8 +265,8 @@
           f.value    = '';
           f.disabled = true;
         }
-        document.getElementById('btn-check').disabled = true;
-        document.getElementById('result-area').hidden  = true;
+        document.getElementById('btn-check').disabled  = true;
+        document.getElementById('col-result').hidden   = true;
       },
 
       setError(errId, msg) {
@@ -310,8 +287,10 @@
         sel.disabled = false;
       },
 
-      showResult(data) {
-        document.getElementById('result-area').hidden = false;
+      async showResult(data) {
+        const colResult = document.getElementById('col-result');
+        colResult.hidden = false;
+
         const badgeEl   = document.getElementById('result-badge');
         const detailsEl = document.getElementById('result-details');
 
@@ -321,52 +300,88 @@
           return;
         }
 
+        // Badge de cobertura
         const first  = data[0];
         const estado = (first.estado || first.Estado || '').trim().toUpperCase();
 
-        let cls = 'alert-warning', icon = '⚠️', text = `Estado: ${first.Estado || 'desconocido'}`;
-
+        let cls = 'alert-warning', icon = '⚠️', text = `Estado: ${first.estado || first.Estado || 'desconocido'}`;
         if (ESTADOS_CON_COBERTURA.some(v => estado.includes(v))) {
-          cls = 'alert-success'; icon = '✅'; text = `Con cobertura — ${first.estado || first.Estado}`;
+          cls = 'alert-success'; icon = '✅'; text = 'Con cobertura';
         } else if (ESTADOS_SIN_COBERTURA.some(v => estado.includes(v))) {
-          cls = 'alert-danger';  icon = '❌'; text = `Sin cobertura — ${first.estado || first.Estado}`;
-        } else if (!estado && data.length > 0) {
+          cls = 'alert-danger';  icon = '❌'; text = 'Sin cobertura';
+        } else if (!estado) {
           cls = 'alert-success'; icon = '✅'; text = 'Dirección encontrada';
         }
 
         const countBadge = data.length > 1
-          ? ` <span class="badge bg-secondary ms-1">${data.length} registros</span>`
-          : '';
+          ? ` <span class="badge bg-secondary ms-1">${data.length} registros</span>` : '';
         badgeEl.innerHTML = `<div class="alert ${cls} mb-3"><strong>${icon} ${text}</strong>${countBadge}</div>`;
 
-        const CAMPOS = {
-          estado: 'Estado', cto: 'CTO', zona: 'Zona',
-          tipoInstalacion: 'Tipo instalación', planta: 'Planta', puerta: 'Puerta',
-          direccionCTO: 'Dirección CTO', gescal37: 'ID de Domicilio',
-        };
-        const entries = Object.entries(CAMPOS);
-        const sections = data.map((rec, i) => {
-          const rows = entries
-            .filter(([k]) => rec[k] != null && rec[k] !== '')
-            .map(([k, label]) => {
-              const tdStyle = k === 'gescal37' ? ' style="white-space: pre;"' : '';
-              return `<tr><th class="text-muted fw-normal" style="width:42%">${label}</th><td${tdStyle}>${rec[k]}</td></tr>`;
-            })
-            .join('');
-          if (!rows) return '';
-          const header = data.length > 1
-            ? `<p class="small text-muted mb-1 mt-3">Registro ${i + 1}:</p>`
-            : `<p class="small text-muted mb-1">Detalles:</p>`;
-          return `${header}<table class="table table-sm table-bordered mb-0"><tbody>${rows}</tbody></table>`;
-        }).join('');
+        // Detalles de la UUII vía Gestfy
+        let detailHtml = '';
+        const uuiiId = first.gescal37 || first.idUUII;
+        if (uuiiId) {
+          const detail = await apiService.getDetailUUII(uuiiId);
+          if (detail) {
+            if (detail.alta_doble) {
+              const desc    = detail.alta_doble_desc    ? escapeHtml(detail.alta_doble_desc)    : '';
+              const comment = detail.alta_doble_comment
+                ? `<br><small class="text-muted">${escapeHtml(detail.alta_doble_comment)}</small>` : '';
+              detailHtml += `<div class="alert alert-warning mb-3">⚠️ Alta doble: <strong>${desc}</strong>${comment}</div>`;
+            }
+            if (detail.red) {
+              detailHtml += `<p class="mb-1 small"><span class="text-muted">Nombre de red:</span> <strong>${escapeHtml(detail.red)}</strong></p>`;
+            }
+            const rawVels = detail.velocidades;
+            const vels = Array.isArray(rawVels) ? rawVels
+              : typeof rawVels === 'string' ? rawVels.split(',').map(v => v.trim()).filter(Boolean)
+              : [];
+            if (vels.length) {
+              const badges = vels.map(v => `<span class="badge bg-primary ms-1">${escapeHtml(String(v))}</span>`).join('');
+              detailHtml += `<p class="mb-3 small"><span class="text-muted">Velocidades:</span>${badges}</p>`;
+            }
+          }
+        }
 
-        detailsEl.innerHTML = sections;
+        // ID de Domicilio — uno por registro, como input readonly + botón copiar
+        const gescalInputs = [];
+        data.forEach((rec, i) => {
+          if (!rec.gescal37) return;
+          const lbl = data.length > 1 ? `ID de Domicilio (${i + 1})` : 'ID de Domicilio';
+          detailHtml += `
+            <div class="mb-2${i === 0 ? ' mt-2' : ''}">
+              <label class="form-label small text-muted mb-1">${lbl}</label>
+              <div class="input-group">
+                <input type="text" class="form-control form-control-sm font-monospace" readonly id="gescal-inp-${i}">
+                <button class="btn btn-outline-secondary btn-sm" id="gescal-btn-${i}" title="Copiar al portapapeles">Copiar</button>
+              </div>
+            </div>`;
+          gescalInputs.push({ i, val: rec.gescal37 });
+        });
+
+        detailsEl.innerHTML = detailHtml;
+
+        // Asignar valores y listeners tras insertar en el DOM
+        gescalInputs.forEach(({ i, val }) => {
+          const inp = document.getElementById(`gescal-inp-${i}`);
+          const btn = document.getElementById(`gescal-btn-${i}`);
+          if (inp) inp.value = val;
+          if (btn) btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(val).then(() => {
+              btn.textContent = '✓ Copiado';
+              setTimeout(() => { btn.textContent = 'Copiar'; }, 1500);
+            }).catch(() => {
+              inp.select();
+              document.execCommand('copy');
+            });
+          });
+        });
       },
 
       showResultError(msg) {
-        document.getElementById('result-area').hidden = false;
+        document.getElementById('col-result').hidden = false;
         document.getElementById('result-badge').innerHTML =
-          `<div class="alert alert-warning mb-0"><strong>⚠️ Error</strong> — ${msg}</div>`;
+          `<div class="alert alert-warning mb-0"><strong>⚠️ Error</strong> — ${escapeHtml(msg)}</div>`;
         document.getElementById('result-details').innerHTML = '';
       },
     };
@@ -386,7 +401,6 @@
         return `Error ${err.status} al ${accion}.`;
       },
 
-      /** Punto de entrada: autologin con config.js, o token ya en auth */
       async start() {
         if (!auth.hasToken()) {
           try {
@@ -408,7 +422,6 @@
         this.init();
       },
 
-      /** Carga inicial de provincias */
       async init() {
         ui.spinner(true);
         try {
@@ -424,7 +437,6 @@
                 .sort((a, b) => a.localeCompare(b, 'es'));
             }
           }
-
           ui.populateSelect('sel-provincia', provinces, p => p, p => p, 'Seleccione una provincia...');
         } catch (err) {
           debug('init error:', err);
@@ -440,8 +452,8 @@
         if (!provincia) return;
         ui.spinner(true);
         try {
-          const data   = await apiService.getPoblaciones(provincia);
-          const items  = (data.length > 0 && typeof data[0] === 'string')
+          const data  = await apiService.getPoblaciones(provincia);
+          const items = (data.length > 0 && typeof data[0] === 'string')
             ? [...new Set(data)].sort((a, b) => a.localeCompare(b, 'es'))
             : [...new Set(data.map(d => d.poblacion || d.Poblacion).filter(Boolean))]
                 .sort((a, b) => a.localeCompare(b, 'es'));
@@ -506,9 +518,7 @@
         const filtered   = lower
           ? this.state.allVias.filter(v => v.toLowerCase().includes(lower))
           : this.state.allVias;
-
         this._renderVias(filtered);
-
         if (currentVia && filtered.includes(currentVia)) {
           document.getElementById('sel-via').value = currentVia;
         } else if (currentVia) {
@@ -563,7 +573,7 @@
           }
         } catch (err) {
           debug('onNumeroChange (pisos) error — no bloqueante:', err);
-          const selPiso = document.getElementById('sel-piso');
+          const selPiso     = document.getElementById('sel-piso');
           selPiso.innerHTML = '<option value="">No disponible</option>';
           selPiso.disabled  = true;
         } finally {
@@ -579,15 +589,15 @@
 
         btn.disabled = true;
         ui.spinner(true);
-        document.getElementById('result-area').hidden = true;
+        document.getElementById('col-result').hidden = true;
 
         try {
           const data = await apiService.getCobertura(poblacion, tipoVia, via, numero, piso);
-          ui.showResult(data);
+          await ui.showResult(data);
         } catch (err) {
           debug('onSubmit error:', err);
           err.status === 404
-            ? ui.showResult([])
+            ? await ui.showResult([])
             : ui.showResultError(this.formatError(err, 'comprobar la cobertura'));
         } finally {
           ui.spinner(false);

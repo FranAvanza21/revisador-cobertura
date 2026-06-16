@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comprobador de Cobertura</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <script src="config.js"></script>
+  <style>
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      background-color: #0d6efd;
+      color: #fff;
+      margin-right: 5px;
+      flex-shrink: 0;
+    }
+    #sel-via { min-height: 130px; }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container py-4" style="max-width: 620px;">
+
+    <div id="panel-main" class="card shadow-sm">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <strong>Comprobador de Cobertura de Red</strong>
+      </div>
+      <div class="card-body">
+
+        <!-- PROVINCIA -->
+        <div class="mb-3">
+          <label for="sel-provincia" class="form-label fw-semibold">
+            <span class="step-badge">0</span>Provincia
+          </label>
+          <select id="sel-provincia" class="form-select" disabled>
+            <option value="">Cargando...</option>
+          </select>
+          <div id="err-provincia" class="text-danger small mt-1" hidden></div>
+        </div>
+
+        <!-- POBLACIÓN -->
+        <div class="mb-3">
+          <label for="sel-poblacion" class="form-label fw-semibold">
+            <span class="step-badge">1</span>Población
+          </label>
+          <select id="sel-poblacion" class="form-select" disabled>
+            <option value="">Seleccione una provincia primero</option>
+          </select>
+          <div id="err-poblacion" class="text-danger small mt-1" hidden></div>
+        </div>
+
+        <!-- TIPO DE VÍA -->
+        <div class="mb-3">
+          <label for="sel-tipo-via" class="form-label fw-semibold">
+            <span class="step-badge">2</span>Tipo de Vía
+          </label>
+          <select id="sel-tipo-via" class="form-select" disabled>
+            <option value="">Seleccione una población primero</option>
+          </select>
+          <div id="err-tipo-via" class="text-danger small mt-1" hidden></div>
+        </div>
+
+        <!-- VÍA -->
+        <div class="mb-3">
+          <label for="sel-via" class="form-label fw-semibold">
+            <span class="step-badge">3</span>Vía
+          </label>
+          <input type="search" id="filter-via" class="form-control form-control-sm mb-1"
+            placeholder="Filtrar vías..." disabled autocomplete="off" aria-label="Filtrar vías">
+          <select id="sel-via" class="form-select" disabled size="5">
+            <option value="">Seleccione un tipo de vía primero</option>
+          </select>
+          <div id="err-via" class="text-danger small mt-1" hidden></div>
+        </div>
+
+        <!-- NÚMERO -->
+        <div class="mb-3">
+          <label for="sel-numero" class="form-label fw-semibold">
+            <span class="step-badge">4</span>Número
+          </label>
+          <select id="sel-numero" class="form-select" disabled>
+            <option value="">Seleccione una vía primero</option>
+          </select>
+          <div id="err-numero" class="text-danger small mt-1" hidden></div>
+        </div>
+
+        <!-- PISO -->
+        <div class="mb-3">
+          <label for="sel-piso" class="form-label fw-semibold">
+            <span class="step-badge">5</span>Piso
+            <span class="text-muted fw-normal small">(opcional)</span>
+          </label>
+          <select id="sel-piso" class="form-select" disabled>
+            <option value="">Seleccione un número primero</option>
+          </select>
+          <div id="err-piso" class="text-danger small mt-1" hidden></div>
+        </div>
+
+        <!-- SPINNER -->
+        <div id="spinner" class="text-center text-muted my-3" hidden>
+          <div class="spinner-border spinner-border-sm text-primary me-2" role="status" aria-hidden="true"></div>
+          <span class="small">Cargando...</span>
+        </div>
+
+        <!-- BOTÓN PRINCIPAL -->
+        <div class="d-grid">
+          <button id="btn-check" class="btn btn-primary" disabled>
+            Comprobar cobertura
+          </button>
+        </div>
+
+        <!-- RESULTADO -->
+        <div id="result-area" hidden>
+          <hr class="my-4">
+          <div id="result-badge"></div>
+          <div id="result-details"></div>
+          <button id="btn-reset" class="btn btn-outline-secondary btn-sm mt-2">
+            Nueva búsqueda
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── CONFIGURACIÓN ─────────────────────────────────────────────────────────
+    const BASE_URL   = 'https://sia.avanzasolutions.es/api';
+    const API_TOKEN  = '';       // Bearer token fijo; vacío → autologin con config.js
+    const DEBUG_MODE = false;    // true para activar logs en consola
+
+    // Valores de Estado que indican cobertura (ajustar con los valores reales de la API)
+    const ESTADOS_CON_COBERTURA = ['ACTIVO', 'DISPONIBLE', 'CON COBERTURA', 'LIBERADO', 'SI', 'COMERCIALIZABLE'];
+    const ESTADOS_SIN_COBERTURA = ['INACTIVO', 'SIN COBERTURA', 'NO COBERTURA', 'BAJA', 'ANULADO', 'NO'];
+
+    // ─── UTILIDADES ────────────────────────────────────────────────────────────
+    const debug = (...args) => { if (DEBUG_MODE) console.log('[COB]', ...args); };
+
+    // ─── GESTIÓN DE TOKEN ──────────────────────────────────────────────────────
+    const auth = {
+      _token: API_TOKEN || sessionStorage.getItem('token') || '',
+
+      get token() { return this._token; },
+
+      set token(val) {
+        this._token = val;
+        sessionStorage.setItem('token', val);
+      },
+
+      clear() {
+        this._token = '';
+        sessionStorage.removeItem('token');
+      },
+
+      hasToken() { return !!this._token; },
+    };
+
+    // ─── API SERVICE ───────────────────────────────────────────────────────────
+    const apiService = {
+
+      /**
+       * GET autenticado genérico
+       * @param {string} path
+       * @param {URLSearchParams} [params]
+       * @returns {Promise<any>}
+       * @throws {{ status: number, body: string }}
+       */
+      async get(path, params = new URLSearchParams()) {
+        const qs  = params.toString();
+        const url = `${BASE_URL}${path}${qs ? '?' + qs : ''}`;
+        debug('GET', url);
+        const res = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${auth.token}`,
+            'Accept': 'application/json',
+          },
+        });
+        if (!res.ok) {
+          const body = await res.text().catch(() => res.statusText);
+          throw { status: res.status, body };
+        }
+        return res.json();
+      },
+
+      /** @returns {Promise<Array<{Id, Poblacion, Provincia, UUIIEstimadas, Proyecto}>>} */
+      async getProvincias() {
+        const data = await this.get('/Cobertura/Provincias');
+        return Array.isArray(data) ? data : [data];
+      },
+
+      /**
+       * @param {string} [provincia]
+       * @returns {Promise<Array<{Id, Poblacion, Provincia, UUIIEstimadas, Proyecto}>>}
+       */
+      async getPoblaciones(provincia = '') {
+        const p = new URLSearchParams();
+        if (provincia) p.set('provincia', provincia);
+        const data = await this.get('/Cobertura/Poblaciones', p);
+        return Array.isArray(data) ? data : [data];
+      },
+
+      /**
+       * @param {string} poblacion
+       * @returns {Promise<string[]>}
+       */
+      async getTipoVia(poblacion) {
+        return this.get('/Cobertura/TipoVia', new URLSearchParams({ Poblacion: poblacion }));
+      },
+
+      /**
+       * @param {string} poblacion
+       * @param {string} tipoVia
+       * @returns {Promise<string[]>}
+       */
+      async getDomicilio(poblacion, tipoVia) {
+        return this.get('/Cobertura/Domicilio', new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia }));
+      },
+
+      /**
+       * @param {string} poblacion
+       * @param {string} tipoVia
+       * @param {string} via
+       * @returns {Promise<string[]>}
+       */
+      async getNumero(poblacion, tipoVia, via) {
+        return this.get('/Cobertura/Numero', new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia, Via: via }));
+      },
+
+      /**
+       * @param {string} poblacion
+       * @param {string} tipoVia
+       * @param {string} via
+       * @param {string} numero
+       * @returns {Promise<string[]>}
+       */
+      async getPisos(poblacion, tipoVia, via, numero) {
+        return this.get('/Cobertura/Pisos', new URLSearchParams({
+          Poblacion: poblacion, TipoVia: tipoVia, Via: via, Numero: numero,
+        }));
+      },
+
+      /**
+       * Consulta principal de cobertura
+       * @param {string} poblacion
+       * @param {string} tipoVia
+       * @param {string} via
+       * @param {string} numero
+       * @param {string} [pisos]
+       * @returns {Promise<Array<{Estado, CTO, Zona, TipoInstalacion, Planta, Puerta, DireccionCTO, Gescal37}>>}
+       */
+      async getCobertura(poblacion, tipoVia, via, numero, pisos = '') {
+        const p = new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia, Via: via, Numero: numero });
+        if (pisos) p.set('Pisos', pisos);
+        return this.get('/Cobertura', p);
+      },
+    };
+
+    // ─── UI ────────────────────────────────────────────────────────────────────
+    const ui = {
+      steps: [
+        { selId: 'sel-poblacion', errId: 'err-poblacion', placeholder: 'Seleccione una provincia primero' },
+        { selId: 'sel-tipo-via',  errId: 'err-tipo-via',  placeholder: 'Seleccione una población primero' },
+        { selId: 'sel-via',       errId: 'err-via',       placeholder: 'Seleccione un tipo de vía primero' },
+        { selId: 'sel-numero',    errId: 'err-numero',    placeholder: 'Seleccione una vía primero' },
+        { selId: 'sel-piso',      errId: 'err-piso',      placeholder: 'Seleccione un número primero' },
+      ],
+
+      spinner(show) {
+        document.getElementById('spinner').hidden = !show;
+      },
+
+      resetFrom(fromStep) {
+        for (let i = fromStep; i < this.steps.length; i++) {
+          const { selId, errId, placeholder } = this.steps[i];
+          const sel = document.getElementById(selId);
+          sel.innerHTML = `<option value="">${placeholder}</option>`;
+          sel.disabled  = true;
+          this.setError(errId, '');
+        }
+        if (fromStep <= 2) {
+          const f = document.getElementById('filter-via');
+          f.value    = '';
+          f.disabled = true;
+        }
+        document.getElementById('btn-check').disabled = true;
+        document.getElementById('result-area').hidden  = true;
+      },
+
+      setError(errId, msg) {
+        const el = document.getElementById(errId);
+        el.textContent = msg;
+        el.hidden = !msg;
+      },
+
+      populateSelect(selId, items, labelFn, valueFn, placeholder = 'Seleccione...') {
+        const sel = document.getElementById(selId);
+        sel.innerHTML = `<option value="">${placeholder}</option>`;
+        for (const item of items) {
+          const opt       = document.createElement('option');
+          opt.value       = valueFn(item);
+          opt.textContent = labelFn(item);
+          sel.appendChild(opt);
+        }
+        sel.disabled = false;
+      },
+
+      showResult(data) {
+        document.getElementById('result-area').hidden = false;
+        const badgeEl   = document.getElementById('result-badge');
+        const detailsEl = document.getElementById('result-details');
+
+        if (!data || data.length === 0) {
+          badgeEl.innerHTML   = `<div class="alert alert-danger mb-0"><strong>❌ Sin cobertura</strong> — No se encontraron registros para esta dirección.</div>`;
+          detailsEl.innerHTML = '';
+          return;
+        }
+
+        const first  = data[0];
+        const estado = (first.estado || first.Estado || '').trim().toUpperCase();
+
+        let cls = 'alert-warning', icon = '⚠️', text = `Estado: ${first.Estado || 'desconocido'}`;
+
+        if (ESTADOS_CON_COBERTURA.some(v => estado.includes(v))) {
+          cls = 'alert-success'; icon = '✅'; text = `Con cobertura — ${first.estado || first.Estado}`;
+        } else if (ESTADOS_SIN_COBERTURA.some(v => estado.includes(v))) {
+          cls = 'alert-danger';  icon = '❌'; text = `Sin cobertura — ${first.estado || first.Estado}`;
+        } else if (!estado && data.length > 0) {
+          cls = 'alert-success'; icon = '✅'; text = 'Dirección encontrada';
+        }
+
+        const countBadge = data.length > 1
+          ? ` <span class="badge bg-secondary ms-1">${data.length} registros</span>`
+          : '';
+        badgeEl.innerHTML = `<div class="alert ${cls} mb-3"><strong>${icon} ${text}</strong>${countBadge}</div>`;
+
+        const CAMPOS = {
+          estado: 'Estado', cto: 'CTO', zona: 'Zona',
+          tipoInstalacion: 'Tipo instalación', planta: 'Planta', puerta: 'Puerta',
+          direccionCTO: 'Dirección CTO', gescal37: 'Gescal37',
+        };
+        const entries = Object.entries(CAMPOS);
+        const sections = data.map((rec, i) => {
+          const rows = entries
+            .filter(([k]) => rec[k] != null && rec[k] !== '')
+            .map(([k, label]) =>
+              `<tr><th class="text-muted fw-normal" style="width:42%">${label}</th><td>${rec[k]}</td></tr>`)
+            .join('');
+          if (!rows) return '';
+          const header = data.length > 1
+            ? `<p class="small text-muted mb-1 mt-3">Registro ${i + 1}:</p>`
+            : `<p class="small text-muted mb-1">Detalles:</p>`;
+          return `${header}<table class="table table-sm table-bordered mb-0"><tbody>${rows}</tbody></table>`;
+        }).join('');
+
+        detailsEl.innerHTML = sections;
+      },
+
+      showResultError(msg) {
+        document.getElementById('result-area').hidden = false;
+        document.getElementById('result-badge').innerHTML =
+          `<div class="alert alert-warning mb-0"><strong>⚠️ Error</strong> — ${msg}</div>`;
+        document.getElementById('result-details').innerHTML = '';
+      },
+    };
+
+    // ─── APP ───────────────────────────────────────────────────────────────────
+    const app = {
+      state: {
+        provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', piso: '',
+        allVias: [],
+      },
+
+      formatError(err, accion) {
+        if (!err.status)        return `Sin conexión al ${accion}. Compruebe la red.`;
+        if (err.status === 401) return `No autorizado. Compruebe las credenciales o el token.`;
+        if (err.status === 404) return `Sin resultados.`;
+        if (err.status >= 500)  return `Error del servidor (${err.status}) al ${accion}.`;
+        return `Error ${err.status} al ${accion}.`;
+      },
+
+      /** Punto de entrada: autologin con config.js, o token ya en auth */
+      async start() {
+        if (!auth.hasToken()) {
+          try {
+            debug('autologin con config.js');
+            const res = await fetch(`${BASE_URL}/Account/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ Username: SIA_USER, Password: SIA_PASS }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            auth.token = Array.isArray(data) ? data[0] : data;
+          } catch (e) {
+            debug('autologin error:', e);
+            ui.setError('err-provincia', 'No se pudo autenticar con la API. Comprueba config.js.');
+            return;
+          }
+        }
+        this.init();
+      },
+
+      /** Carga inicial de provincias */
+      async init() {
+        ui.spinner(true);
+        try {
+          const data = await apiService.getProvincias();
+          let provinces;
+          if (data.length > 0 && typeof data[0] === 'string') {
+            provinces = [...new Set(data)].sort((a, b) => a.localeCompare(b, 'es'));
+          } else {
+            provinces = [...new Set(data.map(d => d.Provincia).filter(Boolean))]
+              .sort((a, b) => a.localeCompare(b, 'es'));
+            if (provinces.length === 0) {
+              provinces = [...new Set(data.map(d => d.Poblacion).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'es'));
+            }
+          }
+
+          ui.populateSelect('sel-provincia', provinces, p => p, p => p, 'Seleccione una provincia...');
+        } catch (err) {
+          debug('init error:', err);
+          ui.setError('err-provincia', this.formatError(err, 'cargar las provincias'));
+        } finally {
+          ui.spinner(false);
+        }
+      },
+
+      async onProvinciaChange(provincia) {
+        this.state.provincia = provincia;
+        ui.resetFrom(0);
+        if (!provincia) return;
+        ui.spinner(true);
+        try {
+          const data   = await apiService.getPoblaciones(provincia);
+          const items  = (data.length > 0 && typeof data[0] === 'string')
+            ? [...new Set(data)].sort((a, b) => a.localeCompare(b, 'es'))
+            : [...new Set(data.map(d => d.poblacion || d.Poblacion).filter(Boolean))]
+                .sort((a, b) => a.localeCompare(b, 'es'));
+          ui.populateSelect('sel-poblacion', items, p => p, p => p, 'Seleccione una población...');
+        } catch (err) {
+          debug('onProvinciaChange error:', err);
+          ui.setError('err-provincia', this.formatError(err, 'cargar las poblaciones'));
+        } finally {
+          ui.spinner(false);
+        }
+      },
+
+      async onPoblacionChange(poblacion) {
+        this.state.poblacion = poblacion;
+        ui.resetFrom(1);
+        if (!poblacion) return;
+        ui.spinner(true);
+        try {
+          const data   = await apiService.getTipoVia(poblacion);
+          const sorted = [...data].sort((a, b) => a.localeCompare(b, 'es'));
+          ui.populateSelect('sel-tipo-via', sorted, t => t, t => t, 'Seleccione un tipo de vía...');
+        } catch (err) {
+          debug('onPoblacionChange error:', err);
+          ui.setError('err-poblacion', this.formatError(err, 'cargar los tipos de vía'));
+        } finally {
+          ui.spinner(false);
+        }
+      },
+
+      async onTipoViaChange(tipoVia) {
+        this.state.tipoVia = tipoVia;
+        ui.resetFrom(2);
+        if (!tipoVia) return;
+        ui.spinner(true);
+        try {
+          const data = await apiService.getDomicilio(this.state.poblacion, tipoVia);
+          this.state.allVias = [...data].sort((a, b) => a.localeCompare(b, 'es'));
+          this._renderVias(this.state.allVias);
+          document.getElementById('filter-via').disabled = false;
+        } catch (err) {
+          debug('onTipoViaChange error:', err);
+          ui.setError('err-tipo-via', this.formatError(err, 'cargar las vías'));
+        } finally {
+          ui.spinner(false);
+        }
+      },
+
+      _renderVias(vias) {
+        const sel = document.getElementById('sel-via');
+        sel.innerHTML = '<option value="">Seleccione una vía...</option>';
+        for (const v of vias) {
+          const opt = document.createElement('option');
+          opt.value = opt.textContent = v;
+          sel.appendChild(opt);
+        }
+        sel.disabled = false;
+      },
+
+      onViaFilter(text) {
+        const currentVia = document.getElementById('sel-via').value;
+        const lower      = text.trim().toLowerCase();
+        const filtered   = lower
+          ? this.state.allVias.filter(v => v.toLowerCase().includes(lower))
+          : this.state.allVias;
+
+        this._renderVias(filtered);
+
+        if (currentVia && filtered.includes(currentVia)) {
+          document.getElementById('sel-via').value = currentVia;
+        } else if (currentVia) {
+          this.state.via = '';
+          ui.resetFrom(3);
+          document.getElementById('sel-via').disabled    = false;
+          document.getElementById('filter-via').disabled = false;
+        }
+      },
+
+      async onViaChange(via) {
+        this.state.via = via;
+        ui.resetFrom(3);
+        if (!via) return;
+        document.getElementById('sel-via').disabled    = false;
+        document.getElementById('filter-via').disabled = false;
+        ui.spinner(true);
+        try {
+          const data   = await apiService.getNumero(this.state.poblacion, this.state.tipoVia, via);
+          const sorted = [...data].sort((a, b) => {
+            const na = parseInt(a, 10), nb = parseInt(b, 10);
+            return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b, 'es');
+          });
+          ui.populateSelect('sel-numero', sorted, n => n, n => n, 'Seleccione un número...');
+        } catch (err) {
+          debug('onViaChange error:', err);
+          ui.setError('err-via', this.formatError(err, 'cargar los números'));
+        } finally {
+          ui.spinner(false);
+        }
+      },
+
+      async onNumeroChange(numero) {
+        this.state.numero = numero;
+        ui.resetFrom(4);
+        if (!numero) return;
+        ui.spinner(true);
+        try {
+          const data    = await apiService.getPisos(this.state.poblacion, this.state.tipoVia, this.state.via, numero);
+          const selPiso = document.getElementById('sel-piso');
+          if (data && data.length > 0) {
+            selPiso.innerHTML = '<option value="">Sin filtrar por piso (todos)</option>';
+            for (const p of data) {
+              const opt = document.createElement('option');
+              opt.value = opt.textContent = p;
+              selPiso.appendChild(opt);
+            }
+            selPiso.disabled = false;
+          } else {
+            selPiso.innerHTML = '<option value="">Sin pisos disponibles</option>';
+            selPiso.disabled  = true;
+          }
+        } catch (err) {
+          debug('onNumeroChange (pisos) error — no bloqueante:', err);
+          const selPiso = document.getElementById('sel-piso');
+          selPiso.innerHTML = '<option value="">No disponible</option>';
+          selPiso.disabled  = true;
+        } finally {
+          ui.spinner(false);
+          document.getElementById('btn-check').disabled = false;
+        }
+      },
+
+      async onSubmit() {
+        const { poblacion, tipoVia, via, numero } = this.state;
+        const piso = document.getElementById('sel-piso').value;
+        const btn  = document.getElementById('btn-check');
+
+        btn.disabled = true;
+        ui.spinner(true);
+        document.getElementById('result-area').hidden = true;
+
+        try {
+          const data = await apiService.getCobertura(poblacion, tipoVia, via, numero, piso);
+          ui.showResult(data);
+        } catch (err) {
+          debug('onSubmit error:', err);
+          err.status === 404
+            ? ui.showResult([])
+            : ui.showResultError(this.formatError(err, 'comprobar la cobertura'));
+        } finally {
+          ui.spinner(false);
+          btn.disabled = false;
+        }
+      },
+
+      onReset() {
+        this.state = { provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', piso: '', allVias: [] };
+        document.getElementById('sel-provincia').value = '';
+        ui.resetFrom(0);
+      },
+    };
+
+    // ─── EVENTOS ───────────────────────────────────────────────────────────────
+    document.getElementById('sel-provincia').addEventListener('change', e => app.onProvinciaChange(e.target.value));
+    document.getElementById('sel-poblacion').addEventListener('change', e => app.onPoblacionChange(e.target.value));
+    document.getElementById('sel-tipo-via') .addEventListener('change', e => app.onTipoViaChange(e.target.value));
+    document.getElementById('filter-via')   .addEventListener('input',  e => app.onViaFilter(e.target.value));
+    document.getElementById('sel-via')      .addEventListener('change', e => app.onViaChange(e.target.value));
+    document.getElementById('sel-numero')   .addEventListener('change', e => app.onNumeroChange(e.target.value));
+    document.getElementById('btn-check')    .addEventListener('click',  () => app.onSubmit());
+    document.getElementById('btn-reset')    .addEventListener('click',  () => app.onReset());
+
+    // ─── ARRANQUE ──────────────────────────────────────────────────────────────
+    app.start();
+  </script>
+</body>
+</html>

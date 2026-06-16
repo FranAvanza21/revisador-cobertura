@@ -131,7 +131,7 @@
 
   <script>
     // ─── CONFIGURACIÓN ─────────────────────────────────────────────────────────
-    const BASE_URL   = 'https://sia.avanzasolutions.es/api';
+    const BASE_URL   = (typeof SIA_API_URL !== 'undefined') ? SIA_API_URL : '';
     const API_TOKEN  = '';       // Bearer token fijo; vacío → autologin con config.js
     const DEBUG_MODE = false;    // true para activar logs en consola
 

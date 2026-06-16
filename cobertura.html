@@ -342,14 +342,16 @@
         const CAMPOS = {
           estado: 'Estado', cto: 'CTO', zona: 'Zona',
           tipoInstalacion: 'Tipo instalación', planta: 'Planta', puerta: 'Puerta',
-          direccionCTO: 'Dirección CTO', gescal37: 'Gescal37',
+          direccionCTO: 'Dirección CTO', gescal37: 'ID de Domicilio',
         };
         const entries = Object.entries(CAMPOS);
         const sections = data.map((rec, i) => {
           const rows = entries
             .filter(([k]) => rec[k] != null && rec[k] !== '')
-            .map(([k, label]) =>
-              `<tr><th class="text-muted fw-normal" style="width:42%">${label}</th><td>${rec[k]}</td></tr>`)
+            .map(([k, label]) => {
+              const tdStyle = k === 'gescal37' ? ' style="white-space: pre;"' : '';
+              return `<tr><th class="text-muted fw-normal" style="width:42%">${label}</th><td${tdStyle}>${rec[k]}</td></tr>`;
+            })
             .join('');
           if (!rows) return '';
           const header = data.length > 1

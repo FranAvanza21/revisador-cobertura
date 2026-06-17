@@ -179,7 +179,7 @@
     const ESTADOS_SIN_COBERTURA = ['INACTIVO', 'SIN COBERTURA', 'NO COBERTURA', 'BAJA', 'ANULADO', 'NO'];
 
     // Orden en que se ofrecen los filtros cliente tras número/piso
-    const DYNAMIC_FILTER_ORDER = ['bloque', 'escalera', 'puerta', 'letra', 'portalPuerta'];
+    const DYNAMIC_FILTER_ORDER = ['bloque', 'escalera', 'planta', 'puerta', 'letra', 'portalPuerta'];
 
     const FIELD_LABELS = {
       id:              'ID interno',
@@ -723,18 +723,38 @@
         });
       },
 
+      // Devuelve true si hay algún selector dinámico renderizado pero sin seleccionar
+      _hasUnselectedFilters() {
+        const container = document.getElementById('dynamic-steps');
+        // Piso
+        const pisoSel = document.getElementById('dyn-piso');
+        if (pisoSel && !pisoSel.value) return true;
+        // Filtros cliente
+        return DYNAMIC_FILTER_ORDER.some(field => {
+          const wrapper = container.querySelector(`[data-field="${field}"]`);
+          if (!wrapper) return false;
+          const sel = wrapper.querySelector('select');
+          return sel && !sel.value;
+        });
+      },
+
       // Actualiza el texto/estado del botón según cuántos resultados quedan
       _updateCheckButton(count) {
         const btn = document.getElementById('btn-check');
         if (count === 0) {
           btn.disabled    = true;
           btn.textContent = 'Sin resultados para este filtro';
-        } else {
-          btn.disabled    = false;
-          btn.textContent = count === 1
-            ? 'Comprobar cobertura'
-            : `Comprobar cobertura (${count} resultados)`;
+          return;
         }
+        if (count === 1) {
+          btn.disabled    = false;
+          btn.textContent = 'Comprobar cobertura';
+          return;
+        }
+        // Más de 1 resultado: bloquear si quedan filtros por rellenar
+        const mustFilter = this._hasUnselectedFilters();
+        btn.disabled    = mustFilter;
+        btn.textContent = `Comprobar cobertura (${count} resultados)`;
       },
 
       // Precarga /Cobertura con el piso dado, calcula los filtros cliente y

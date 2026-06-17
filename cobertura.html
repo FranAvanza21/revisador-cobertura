@@ -557,10 +557,23 @@
             </div>
           </div>` : '';
 
+        let redVelHtml = '';
+        if (detail) {
+          if (detail.red) {
+            redVelHtml += `<p class="mb-1 small"><span class="text-muted">Nombre de red:</span> <strong>${escapeHtml(translateRed(detail.red))}</strong></p>`;
+          }
+          const vels = detail.perfiles ? Object.keys(detail.perfiles) : [];
+          if (vels.length) {
+            const badges = vels.map(v => `<span class="badge bg-primary ms-1">${escapeHtml(String(v))}</span>`).join('');
+            redVelHtml += `<p class="mb-1 small"><span class="text-muted">Velocidades:</span>${badges}</p>`;
+          }
+        }
+
         return `
           <div class="alert ${cls} mb-2"><strong>${icon} ${statusText}</strong>${countBadge}</div>
           <p class="mb-1 small text-secondary">${address}${ciudad}</p>
           ${altaDobleHtml}
+          ${redVelHtml}
           ${copyBtn}
           <button class="btn btn-link btn-sm px-0 mt-2 text-decoration-none" id="btn-toggle-details">Ver más información ▾</button>
         `;
@@ -569,17 +582,6 @@
       renderResultDetails(data, detail) {
         const first = data[0];
         let html = '';
-
-        if (detail) {
-          if (detail.red) {
-            html += `<p class="mb-1 small"><span class="text-muted">Nombre de red:</span> <strong>${escapeHtml(translateRed(detail.red))}</strong></p>`;
-          }
-          const vels = detail.perfiles ? Object.keys(detail.perfiles) : [];
-          if (vels.length) {
-            const badges = vels.map(v => `<span class="badge bg-primary ms-1">${escapeHtml(String(v))}</span>`).join('');
-            html += `<p class="mb-3 small"><span class="text-muted">Velocidades:</span>${badges}</p>`;
-          }
-        }
 
         const skipFields = ['id'];
         html += '<table class="table table-sm table-bordered small mb-2"><tbody>';

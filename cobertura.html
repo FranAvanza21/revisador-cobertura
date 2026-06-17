@@ -21,7 +21,40 @@
       margin-right: 5px;
       flex-shrink: 0;
     }
-    #sel-via { min-height: 130px; }
+    .ac-wrapper { position: relative; }
+    .ac-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #dee2e6;
+      border-radius: 0.375rem;
+      background: #fff;
+      box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+    .ac-item {
+      cursor: pointer;
+      padding: 0.375rem 0.75rem;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 0.875rem;
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.active {
+      background-color: #0d6efd;
+      color: #fff;
+    }
+    .result-expandable {
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .result-expandable.collapsed { max-height: 0; }
+    .result-expandable.expanded  { max-height: 4000px; }
   </style>
 </head>
 <body class="bg-light">
@@ -38,23 +71,19 @@
 
             <!-- PROVINCIA -->
             <div class="mb-3">
-              <label for="sel-provincia" class="form-label fw-semibold">
+              <label for="ac-provincia-input" class="form-label fw-semibold">
                 <span class="step-badge">0</span>Provincia
               </label>
-              <select id="sel-provincia" class="form-select" disabled>
-                <option value="">Cargando...</option>
-              </select>
+              <div id="ac-provincia-container" class="ac-wrapper"></div>
               <div id="err-provincia" class="text-danger small mt-1" hidden></div>
             </div>
 
             <!-- POBLACIÓN -->
             <div class="mb-3">
-              <label for="sel-poblacion" class="form-label fw-semibold">
+              <label for="ac-poblacion-input" class="form-label fw-semibold">
                 <span class="step-badge">1</span>Población
               </label>
-              <select id="sel-poblacion" class="form-select" disabled>
-                <option value="">Seleccione una provincia primero</option>
-              </select>
+              <div id="ac-poblacion-container" class="ac-wrapper"></div>
               <div id="err-poblacion" class="text-danger small mt-1" hidden></div>
             </div>
 
@@ -71,14 +100,10 @@
 
             <!-- VÍA -->
             <div class="mb-3">
-              <label for="sel-via" class="form-label fw-semibold">
+              <label for="ac-via-input" class="form-label fw-semibold">
                 <span class="step-badge">3</span>Vía
               </label>
-              <input type="search" id="filter-via" class="form-control form-control-sm mb-1"
-                placeholder="Filtrar vías..." disabled autocomplete="off" aria-label="Filtrar vías">
-              <select id="sel-via" class="form-select" disabled size="5">
-                <option value="">Seleccione un tipo de vía primero</option>
-              </select>
+              <div id="ac-via-container" class="ac-wrapper"></div>
               <div id="err-via" class="text-danger small mt-1" hidden></div>
             </div>
 
@@ -93,17 +118,8 @@
               <div id="err-numero" class="text-danger small mt-1" hidden></div>
             </div>
 
-            <!-- PISO -->
-            <div class="mb-3">
-              <label for="sel-piso" class="form-label fw-semibold">
-                <span class="step-badge">5</span>Piso
-                <span class="text-muted fw-normal small">(opcional)</span>
-              </label>
-              <select id="sel-piso" class="form-select" disabled>
-                <option value="">Seleccione un número primero</option>
-              </select>
-              <div id="err-piso" class="text-danger small mt-1" hidden></div>
-            </div>
+            <!-- PASOS DINÁMICOS (piso, escalera, etc.) -->
+            <div id="dynamic-steps"></div>
 
             <!-- SPINNER -->
             <div id="spinner" class="text-center text-muted my-3" hidden>
@@ -129,8 +145,11 @@
             <strong>Resultado</strong>
           </div>
           <div class="card-body">
-            <div id="result-badge"></div>
-            <div id="result-details"></div>
+            <div id="result-summary"></div>
+            <div class="result-expandable collapsed" id="result-expandable">
+              <hr class="mt-2 mb-2">
+              <div id="result-details"></div>
+            </div>
             <button id="btn-reset" class="btn btn-outline-secondary btn-sm mt-3">
               Nueva búsqueda
             </button>
@@ -142,13 +161,53 @@
   </div>
 
   <script>
+    /*
+     * Edge-cases conocidos:
+     * 1. Pisos vacíos  → #dynamic-steps queda vacío; btn-check se habilita igual.
+     * 2. Múltiples registros → gescal37 de cada uno mostrado en la vista expandida.
+     * 3. Sin campo estado → trata como "Dirección encontrada" (✅).
+     * 4. Autocomplete blur con texto inválido → error de validación, la cascada no avanza.
+     * 5. "Ver más" expandido al lanzar nueva búsqueda → el panel se contrae automáticamente.
+     * 6. Proxy UUII no disponible → degradación silenciosa (detail = null), UI sigue operativa.
+     * 7. Un solo registro → no muestra badge de conteo.
+     * 8. gescal37 nulo → no muestra el bloque "Copiar ID" en la vista resumida.
+     */
+
     // ─── CONFIGURACIÓN ─────────────────────────────────────────────────────────
-    const BASE_URL = (typeof SIA_API_URL !== 'undefined') ? SIA_API_URL : '';
-    const API_TOKEN      = '';
-    const DEBUG_MODE     = false;
+    const BASE_URL   = (typeof SIA_API_URL !== 'undefined') ? SIA_API_URL : '';
+    const API_TOKEN  = '';
+    const DEBUG_MODE = false;
 
     const ESTADOS_CON_COBERTURA = ['ACTIVO', 'DISPONIBLE', 'CON COBERTURA', 'LIBERADO', 'SI', 'COMERCIALIZABLE'];
     const ESTADOS_SIN_COBERTURA = ['INACTIVO', 'SIN COBERTURA', 'NO COBERTURA', 'BAJA', 'ANULADO', 'NO'];
+
+    const FIELD_LABELS = {
+      id:              'ID interno',
+      idUUII:          'ID UUII',
+      gescal37:        'ID de Domicilio',
+      poblacion:       'Población',
+      zona:            'Zona',
+      tipoVia:         'Tipo de Vía',
+      via:             'Vía',
+      numero:          'Número',
+      bloque:          'Bloque',
+      portalPuerta:    'Portal / Puerta',
+      letra:           'Letra',
+      escalera:        'Escalera',
+      cto:             'CTO',
+      planta:          'Planta',
+      puerta:          'Puerta',
+      estado:          'Estado',
+      direccionCTO:    'Dirección CTO',
+      tipoInstalacion: 'Tipo de Instalación',
+    };
+
+    const RED_LABELS = {
+      masmovilMUT: 'MasMóvil',
+      onivia:      'Onivia',
+      masmovilBS:  'MasMóvil/Orange',
+      avanza:      'Avanza',
+    };
 
     // ─── UTILIDADES ────────────────────────────────────────────────────────────
     const debug = (...args) => { if (DEBUG_MODE) console.log('[COB]', ...args); };
@@ -157,6 +216,149 @@
       return String(str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function normalizeStr(str) {
+      return String(str).normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
+    }
+
+    function translateRed(rawName) {
+      if (!rawName) return rawName;
+      const lower = String(rawName).toLowerCase();
+      const key   = Object.keys(RED_LABELS).find(k => k.toLowerCase() === lower);
+      return key ? RED_LABELS[key] : rawName;
+    }
+
+    // ─── AUTOCOMPLETE ──────────────────────────────────────────────────────────
+    function buildAutocomplete({ containerId, data, onSelect, placeholder, errId }) {
+      const container = document.getElementById(containerId);
+
+      const input = document.createElement('input');
+      input.type         = 'text';
+      input.className    = 'form-control';
+      input.placeholder  = placeholder || 'Buscar...';
+      input.autocomplete = 'off';
+      input.disabled     = true;
+      input.id           = containerId.replace('-container', '-input');
+
+      const dropdown = document.createElement('ul');
+      dropdown.className    = 'ac-dropdown';
+      dropdown.style.display = 'none';
+
+      container.appendChild(input);
+      container.appendChild(dropdown);
+
+      let _data          = data || [];
+      let _selectedValue = '';
+      let _activeIndex   = -1;
+
+      function setActive(index) {
+        const items = dropdown.querySelectorAll('.ac-item');
+        items.forEach((li, i) => li.classList.toggle('active', i === index));
+        _activeIndex = index;
+      }
+
+      function renderDropdown(items) {
+        dropdown.innerHTML = '';
+        _activeIndex = -1;
+        if (!items.length) { dropdown.style.display = 'none'; return; }
+        items.forEach(item => {
+          const li = document.createElement('li');
+          li.className     = 'ac-item';
+          li.textContent   = item;
+          li.dataset.value = item;
+          li.addEventListener('mousedown', e => { e.preventDefault(); commit(item); });
+          dropdown.appendChild(li);
+        });
+        dropdown.style.display = 'block';
+      }
+
+      function getFiltered() {
+        const q = normalizeStr(input.value);
+        if (!q) return _data;
+        return _data.filter(item => normalizeStr(item).includes(q));
+      }
+
+      function commit(value) {
+        input.value    = value;
+        _selectedValue = value;
+        dropdown.style.display = 'none';
+        _activeIndex   = -1;
+        if (errId) ui.setError(errId, '');
+        onSelect(value);
+      }
+
+      input.addEventListener('input', () => {
+        _selectedValue = '';
+        renderDropdown(getFiltered());
+      });
+
+      input.addEventListener('focus', () => {
+        renderDropdown(getFiltered());
+      });
+
+      input.addEventListener('blur', () => {
+        setTimeout(() => {
+          dropdown.style.display = 'none';
+          if (!input.value) { _selectedValue = ''; return; }
+          if (!_selectedValue) {
+            const exact = _data.find(item => normalizeStr(item) === normalizeStr(input.value));
+            if (exact) {
+              commit(exact);
+            } else if (errId) {
+              ui.setError(errId, 'Seleccione una opción válida de la lista.');
+            }
+          }
+        }, 150);
+      });
+
+      input.addEventListener('keydown', e => {
+        const items = dropdown.querySelectorAll('.ac-item');
+        if (e.key === 'Escape') {
+          dropdown.style.display = 'none';
+          _activeIndex = -1;
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (dropdown.style.display === 'none') renderDropdown(getFiltered());
+          setActive(Math.min(_activeIndex + 1, items.length - 1));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActive(Math.max(_activeIndex - 1, 0));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (_activeIndex >= 0 && items[_activeIndex]) {
+            commit(items[_activeIndex].dataset.value);
+          } else {
+            const filtered = getFiltered();
+            if (filtered.length === 1) commit(filtered[0]);
+          }
+        }
+      });
+
+      document.addEventListener('click', e => {
+        if (!container.contains(e.target)) dropdown.style.display = 'none';
+      });
+
+      return {
+        reset() {
+          input.value    = '';
+          _selectedValue = '';
+          _activeIndex   = -1;
+          dropdown.style.display = 'none';
+          dropdown.innerHTML     = '';
+          input.disabled = true;
+          if (errId) ui.setError(errId, '');
+        },
+        setData(newData) {
+          _data          = newData || [];
+          input.disabled = false;
+          input.value    = '';
+          _selectedValue = '';
+        },
+        getValue() { return _selectedValue; },
+      };
     }
 
     // ─── GESTIÓN DE TOKEN ──────────────────────────────────────────────────────
@@ -170,7 +372,6 @@
 
     // ─── API SERVICE ───────────────────────────────────────────────────────────
     const apiService = {
-
       async get(path, params = new URLSearchParams()) {
         const qs  = params.toString();
         const url = `${BASE_URL}${path}${qs ? '?' + qs : ''}`;
@@ -184,44 +385,35 @@
         }
         return res.json();
       },
-
       async getProvincias() {
         const data = await this.get('/Cobertura/Provincias');
         return Array.isArray(data) ? data : [data];
       },
-
       async getPoblaciones(provincia = '') {
         const p = new URLSearchParams();
         if (provincia) p.set('provincia', provincia);
         const data = await this.get('/Cobertura/Poblaciones', p);
         return Array.isArray(data) ? data : [data];
       },
-
       async getTipoVia(poblacion) {
         return this.get('/Cobertura/TipoVia', new URLSearchParams({ Poblacion: poblacion }));
       },
-
       async getDomicilio(poblacion, tipoVia) {
         return this.get('/Cobertura/Domicilio', new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia }));
       },
-
       async getNumero(poblacion, tipoVia, via) {
         return this.get('/Cobertura/Numero', new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia, Via: via }));
       },
-
       async getPisos(poblacion, tipoVia, via, numero) {
         return this.get('/Cobertura/Pisos', new URLSearchParams({
           Poblacion: poblacion, TipoVia: tipoVia, Via: via, Numero: numero,
         }));
       },
-
       async getCobertura(poblacion, tipoVia, via, numero, pisos = '') {
         const p = new URLSearchParams({ Poblacion: poblacion, TipoVia: tipoVia, Via: via, Numero: numero });
         if (pisos) p.set('Pisos', pisos);
         return this.get('/Cobertura', p);
       },
-
-      // Devuelve null en caso de error (degradación sin bloqueo)
       async getDetailUUII(idUuii) {
         const url = `/api/detail-uuii?id=${encodeURIComponent(idUuii.trim())}`;
         debug('GET (proxy)', url);
@@ -240,39 +432,40 @@
 
     // ─── UI ────────────────────────────────────────────────────────────────────
     const ui = {
-      steps: [
-        { selId: 'sel-poblacion', errId: 'err-poblacion', placeholder: 'Seleccione una provincia primero' },
-        { selId: 'sel-tipo-via',  errId: 'err-tipo-via',  placeholder: 'Seleccione una población primero' },
-        { selId: 'sel-via',       errId: 'err-via',       placeholder: 'Seleccione un tipo de vía primero' },
-        { selId: 'sel-numero',    errId: 'err-numero',    placeholder: 'Seleccione una vía primero' },
-        { selId: 'sel-piso',      errId: 'err-piso',      placeholder: 'Seleccione un número primero' },
-      ],
-
       spinner(show) {
         document.getElementById('spinner').hidden = !show;
       },
 
+      // fromStep: 0=población, 1=tipoVía, 2=vía, 3=número, 4=pasos dinámicos
       resetFrom(fromStep) {
-        for (let i = fromStep; i < this.steps.length; i++) {
-          const { selId, errId, placeholder } = this.steps[i];
-          const sel = document.getElementById(selId);
-          sel.innerHTML = `<option value="">${placeholder}</option>`;
-          sel.disabled  = true;
-          this.setError(errId, '');
+        if (fromStep <= 0) { app._acPoblacion.reset(); }
+        if (fromStep <= 1) {
+          const s = document.getElementById('sel-tipo-via');
+          s.innerHTML = '<option value="">Seleccione una población primero</option>';
+          s.disabled  = true;
+          this.setError('err-tipo-via', '');
         }
-        if (fromStep <= 2) {
-          const f = document.getElementById('filter-via');
-          f.value    = '';
-          f.disabled = true;
+        if (fromStep <= 2) { app._acVia.reset(); }
+        if (fromStep <= 3) {
+          const s = document.getElementById('sel-numero');
+          s.innerHTML = '<option value="">Seleccione una vía primero</option>';
+          s.disabled  = true;
+          this.setError('err-numero', '');
         }
-        document.getElementById('btn-check').disabled  = true;
-        document.getElementById('col-result').hidden   = true;
+        if (fromStep <= 4) { this.resetDynamicSteps(); }
+        document.getElementById('btn-check').disabled = true;
+        document.getElementById('col-result').hidden  = true;
+      },
+
+      resetDynamicSteps() {
+        document.getElementById('dynamic-steps').innerHTML = '';
       },
 
       setError(errId, msg) {
         const el = document.getElementById(errId);
+        if (!el) return;
         el.textContent = msg;
-        el.hidden = !msg;
+        el.hidden      = !msg;
       },
 
       populateSelect(selId, items, labelFn, valueFn, placeholder = 'Seleccione...') {
@@ -287,97 +480,189 @@
         sel.disabled = false;
       },
 
-      async showResult(data) {
-        const colResult = document.getElementById('col-result');
-        colResult.hidden = false;
+      renderDynamicStep(fieldDef) {
+        const container = document.getElementById('dynamic-steps');
+        const wrapper   = document.createElement('div');
+        wrapper.className     = 'mb-3';
+        wrapper.dataset.field = fieldDef.fieldName;
 
-        const badgeEl   = document.getElementById('result-badge');
-        const detailsEl = document.getElementById('result-details');
+        const label = document.createElement('label');
+        label.className = 'form-label fw-semibold';
+        label.htmlFor   = `dyn-${fieldDef.fieldName}`;
+
+        const badge = document.createElement('span');
+        badge.className   = 'step-badge';
+        badge.textContent = fieldDef.stepNum;
+        label.appendChild(badge);
+        label.appendChild(document.createTextNode(fieldDef.label));
+
+        if (fieldDef.optional) {
+          const opt = document.createElement('span');
+          opt.className   = 'text-muted fw-normal small';
+          opt.textContent = ' (opcional)';
+          label.appendChild(opt);
+        }
+
+        const sel = document.createElement('select');
+        sel.id        = `dyn-${fieldDef.fieldName}`;
+        sel.className = 'form-select';
+        const defaultLabel = `Sin filtrar por ${fieldDef.label.toLowerCase()} (todos)`;
+        sel.innerHTML = `<option value="">${defaultLabel}</option>`;
+        for (const item of fieldDef.data) {
+          const opt = document.createElement('option');
+          opt.value = opt.textContent = item;
+          sel.appendChild(opt);
+        }
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(sel);
+        container.appendChild(wrapper);
+        return sel;
+      },
+
+      renderResultSummary(data, detail) {
+        const first  = data[0];
+        const estado = (first.estado || '').trim().toUpperCase();
+
+        let cls = 'alert-warning', icon = '⚠️';
+        let statusText = `Estado: ${escapeHtml(first.estado || 'desconocido')}`;
+        if (ESTADOS_CON_COBERTURA.some(v => estado.includes(v))) {
+          cls = 'alert-success'; icon = '✅'; statusText = 'Con cobertura';
+        } else if (ESTADOS_SIN_COBERTURA.some(v => estado.includes(v))) {
+          cls = 'alert-danger';  icon = '❌'; statusText = 'Sin cobertura';
+        } else if (!estado) {
+          cls = 'alert-success'; icon = '✅'; statusText = 'Dirección encontrada';
+        }
+
+        const countBadge = data.length > 1
+          ? `<span class="badge bg-secondary ms-1">${data.length} registros</span>` : '';
+
+        const parts   = [first.tipoVia, first.via, first.numero].filter(Boolean);
+        const address = escapeHtml(parts.join(' '));
+        const ciudad  = first.poblacion ? ` &mdash; ${escapeHtml(first.poblacion)}` : '';
+
+        let altaDobleHtml = '';
+        if (detail && detail.alta_doble) {
+          const desc    = detail.alta_doble_desc    ? escapeHtml(detail.alta_doble_desc)    : '';
+          const comment = detail.alta_doble_comment
+            ? `<br><small class="text-muted">${escapeHtml(detail.alta_doble_comment)}</small>` : '';
+          altaDobleHtml = `<div class="alert alert-warning mt-2 mb-2 py-2">⚠️ Alta doble: <strong>${desc}</strong>${comment}</div>`;
+        }
+
+        const mainGescal = first.gescal37;
+        const copyBtn = mainGescal ? `
+          <div class="mt-2">
+            <label class="form-label small text-muted mb-1">ID de Domicilio</label>
+            <div class="input-group input-group-sm">
+              <input type="text" class="form-control form-control-sm font-monospace" readonly id="gescal-inp-0">
+              <button class="btn btn-outline-secondary btn-sm" id="gescal-btn-0">Copiar ID</button>
+            </div>
+          </div>` : '';
+
+        return `
+          <div class="alert ${cls} mb-2"><strong>${icon} ${statusText}</strong>${countBadge}</div>
+          <p class="mb-1 small text-secondary">${address}${ciudad}</p>
+          ${altaDobleHtml}
+          ${copyBtn}
+          <button class="btn btn-link btn-sm px-0 mt-2 text-decoration-none" id="btn-toggle-details">Ver más información ▾</button>
+        `;
+      },
+
+      renderResultDetails(data, detail) {
+        const first = data[0];
+        let html = '';
+
+        if (detail) {
+          if (detail.red) {
+            html += `<p class="mb-1 small"><span class="text-muted">Nombre de red:</span> <strong>${escapeHtml(translateRed(detail.red))}</strong></p>`;
+          }
+          const vels = detail.perfiles ? Object.keys(detail.perfiles) : [];
+          if (vels.length) {
+            const badges = vels.map(v => `<span class="badge bg-primary ms-1">${escapeHtml(String(v))}</span>`).join('');
+            html += `<p class="mb-3 small"><span class="text-muted">Velocidades:</span>${badges}</p>`;
+          }
+        }
+
+        const skipFields = ['id'];
+        html += '<table class="table table-sm table-bordered small mb-2"><tbody>';
+        for (const [key, val] of Object.entries(first)) {
+          if (skipFields.includes(key) || val === null || val === undefined || val === '') continue;
+          const label      = FIELD_LABELS[key] || key;
+          const displayVal = key === 'gescal37'
+            ? `<span style="white-space:pre">${escapeHtml(String(val))}</span>`
+            : escapeHtml(String(val));
+          html += `<tr><th class="text-muted fw-normal" style="width:40%">${escapeHtml(label)}</th><td>${displayVal}</td></tr>`;
+        }
+        html += '</tbody></table>';
+
+        data.forEach((rec, i) => {
+          if (i === 0 || !rec.gescal37) return;
+          html += `
+            <div class="mb-2">
+              <label class="form-label small text-muted mb-1">ID de Domicilio (${i + 1})</label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control form-control-sm font-monospace" readonly id="gescal-inp-${i}">
+                <button class="btn btn-outline-secondary btn-sm" id="gescal-btn-${i}">Copiar</button>
+              </div>
+            </div>`;
+        });
+
+        return html;
+      },
+
+      async showResult(data) {
+        const colResult    = document.getElementById('col-result');
+        const summaryEl    = document.getElementById('result-summary');
+        const expandableEl = document.getElementById('result-expandable');
+        const detailsEl    = document.getElementById('result-details');
+
+        colResult.hidden = false;
+        expandableEl.classList.remove('expanded');
+        expandableEl.classList.add('collapsed');
 
         if (!data || data.length === 0) {
-          badgeEl.innerHTML   = `<div class="alert alert-danger mb-0"><strong>❌ Sin cobertura</strong> — No se encontraron registros para esta dirección.</div>`;
+          summaryEl.innerHTML = `<div class="alert alert-danger mb-0"><strong>❌ Sin cobertura</strong> — No se encontraron registros para esta dirección.</div>`;
           detailsEl.innerHTML = '';
           return;
         }
 
-        // Badge de cobertura
         const first  = data[0];
-        const estado = (first.estado || first.Estado || '').trim().toUpperCase();
-
-        let cls = 'alert-warning', icon = '⚠️', text = `Estado: ${first.estado || first.Estado || 'desconocido'}`;
-        if (ESTADOS_CON_COBERTURA.some(v => estado.includes(v))) {
-          cls = 'alert-success'; icon = '✅'; text = 'Con cobertura';
-        } else if (ESTADOS_SIN_COBERTURA.some(v => estado.includes(v))) {
-          cls = 'alert-danger';  icon = '❌'; text = 'Sin cobertura';
-        } else if (!estado) {
-          cls = 'alert-success'; icon = '✅'; text = 'Dirección encontrada';
-        }
-
-        const countBadge = data.length > 1
-          ? ` <span class="badge bg-secondary ms-1">${data.length} registros</span>` : '';
-        badgeEl.innerHTML = `<div class="alert ${cls} mb-3"><strong>${icon} ${text}</strong>${countBadge}</div>`;
-
-        // Detalles de la UUII vía Gestfy
-        let detailHtml = '';
         const uuiiId = first.gescal37 || first.idUUII;
-        if (uuiiId) {
-          const detail = await apiService.getDetailUUII(uuiiId);
-          if (detail) {
-            if (detail.alta_doble) {
-              const desc    = detail.alta_doble_desc    ? escapeHtml(detail.alta_doble_desc)    : '';
-              const comment = detail.alta_doble_comment
-                ? `<br><small class="text-muted">${escapeHtml(detail.alta_doble_comment)}</small>` : '';
-              detailHtml += `<div class="alert alert-warning mb-3">⚠️ Alta doble: <strong>${desc}</strong>${comment}</div>`;
-            }
-            if (detail.red) {
-              detailHtml += `<p class="mb-1 small"><span class="text-muted">Nombre de red:</span> <strong>${escapeHtml(detail.red)}</strong></p>`;
-            }
-            const vels = detail.perfiles ? Object.keys(detail.perfiles) : [];
-            if (vels.length) {
-              const badges = vels.map(v => `<span class="badge bg-primary ms-1">${escapeHtml(String(v))}</span>`).join('');
-              detailHtml += `<p class="mb-3 small"><span class="text-muted">Velocidades:</span>${badges}</p>`;
-            }
-          }
-        }
+        const detail = uuiiId ? await apiService.getDetailUUII(uuiiId) : null;
 
-        // ID de Domicilio — uno por registro, como input readonly + botón copiar
-        const gescalInputs = [];
+        summaryEl.innerHTML = this.renderResultSummary(data, detail);
+        detailsEl.innerHTML = this.renderResultDetails(data, detail);
+
         data.forEach((rec, i) => {
           if (!rec.gescal37) return;
-          const lbl = data.length > 1 ? `ID de Domicilio (${i + 1})` : 'ID de Domicilio';
-          detailHtml += `
-            <div class="mb-2${i === 0 ? ' mt-2' : ''}">
-              <label class="form-label small text-muted mb-1">${lbl}</label>
-              <div class="input-group">
-                <input type="text" class="form-control form-control-sm font-monospace" readonly id="gescal-inp-${i}">
-                <button class="btn btn-outline-secondary btn-sm" id="gescal-btn-${i}" title="Copiar al portapapeles">Copiar</button>
-              </div>
-            </div>`;
-          gescalInputs.push({ i, val: rec.gescal37 });
-        });
-
-        detailsEl.innerHTML = detailHtml;
-
-        // Asignar valores y listeners tras insertar en el DOM
-        gescalInputs.forEach(({ i, val }) => {
           const inp = document.getElementById(`gescal-inp-${i}`);
           const btn = document.getElementById(`gescal-btn-${i}`);
-          if (inp) inp.value = val;
+          if (inp) inp.value = rec.gescal37;
           if (btn) btn.addEventListener('click', () => {
-            navigator.clipboard.writeText(val).then(() => {
+            navigator.clipboard.writeText(rec.gescal37).then(() => {
               btn.textContent = '✓ Copiado';
-              setTimeout(() => { btn.textContent = 'Copiar'; }, 1500);
-            }).catch(() => {
-              inp.select();
-              document.execCommand('copy');
-            });
+              setTimeout(() => { btn.textContent = i === 0 ? 'Copiar ID' : 'Copiar'; }, 1500);
+            }).catch(() => { inp && inp.select(); document.execCommand('copy'); });
           });
         });
+
+        const toggleBtn = document.getElementById('btn-toggle-details');
+        if (toggleBtn) {
+          toggleBtn.addEventListener('click', () => {
+            const isCollapsed = expandableEl.classList.contains('collapsed');
+            expandableEl.classList.toggle('collapsed', !isCollapsed);
+            expandableEl.classList.toggle('expanded', isCollapsed);
+            toggleBtn.textContent = isCollapsed ? 'Ver menos ▴' : 'Ver más información ▾';
+          });
+        }
       },
 
       showResultError(msg) {
-        document.getElementById('col-result').hidden = false;
-        document.getElementById('result-badge').innerHTML =
+        const colResult = document.getElementById('col-result');
+        colResult.hidden = false;
+        document.getElementById('result-expandable').classList.remove('expanded');
+        document.getElementById('result-expandable').classList.add('collapsed');
+        document.getElementById('result-summary').innerHTML =
           `<div class="alert alert-warning mb-0"><strong>⚠️ Error</strong> — ${escapeHtml(msg)}</div>`;
         document.getElementById('result-details').innerHTML = '';
       },
@@ -385,10 +670,10 @@
 
     // ─── APP ───────────────────────────────────────────────────────────────────
     const app = {
-      state: {
-        provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', piso: '',
-        allVias: [],
-      },
+      state: { provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', _provinces: [] },
+      _acProvincia: null,
+      _acPoblacion: null,
+      _acVia:       null,
 
       formatError(err, accion) {
         if (!err.status)        return `Sin conexión al ${accion}. Compruebe la red.`;
@@ -398,14 +683,47 @@
         return `Error ${err.status} al ${accion}.`;
       },
 
+      getNextFields(pisosData) {
+        if (!pisosData || !pisosData.length) return [];
+        return [{
+          fieldName: 'piso',
+          label:     'Piso',
+          stepNum:   5,
+          data:      pisosData,
+          optional:  true,
+        }];
+      },
+
       async start() {
+        this._acProvincia = buildAutocomplete({
+          containerId: 'ac-provincia-container',
+          data:        [],
+          placeholder: 'Buscar provincia...',
+          errId:       'err-provincia',
+          onSelect:    value => this.onProvinciaChange(value),
+        });
+        this._acPoblacion = buildAutocomplete({
+          containerId: 'ac-poblacion-container',
+          data:        [],
+          placeholder: 'Buscar población...',
+          errId:       'err-poblacion',
+          onSelect:    value => this.onPoblacionChange(value),
+        });
+        this._acVia = buildAutocomplete({
+          containerId: 'ac-via-container',
+          data:        [],
+          placeholder: 'Buscar vía...',
+          errId:       'err-via',
+          onSelect:    value => this.onViaChange(value),
+        });
+
         if (!auth.hasToken()) {
           try {
             debug('autologin con config.js');
             const res = await fetch(`${BASE_URL}/Account/login`, {
-              method: 'POST',
+              method:  'POST',
               headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              body: JSON.stringify({ Username: SIA_USER, Password: SIA_PASS }),
+              body:    JSON.stringify({ Username: SIA_USER, Password: SIA_PASS }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
@@ -434,7 +752,8 @@
                 .sort((a, b) => a.localeCompare(b, 'es'));
             }
           }
-          ui.populateSelect('sel-provincia', provinces, p => p, p => p, 'Seleccione una provincia...');
+          this.state._provinces = provinces;
+          this._acProvincia.setData(provinces);
         } catch (err) {
           debug('init error:', err);
           ui.setError('err-provincia', this.formatError(err, 'cargar las provincias'));
@@ -454,7 +773,7 @@
             ? [...new Set(data)].sort((a, b) => a.localeCompare(b, 'es'))
             : [...new Set(data.map(d => d.poblacion || d.Poblacion).filter(Boolean))]
                 .sort((a, b) => a.localeCompare(b, 'es'));
-          ui.populateSelect('sel-poblacion', items, p => p, p => p, 'Seleccione una población...');
+          this._acPoblacion.setData(items);
         } catch (err) {
           debug('onProvinciaChange error:', err);
           ui.setError('err-provincia', this.formatError(err, 'cargar las poblaciones'));
@@ -486,10 +805,9 @@
         if (!tipoVia) return;
         ui.spinner(true);
         try {
-          const data = await apiService.getDomicilio(this.state.poblacion, tipoVia);
-          this.state.allVias = [...data].sort((a, b) => a.localeCompare(b, 'es'));
-          this._renderVias(this.state.allVias);
-          document.getElementById('filter-via').disabled = false;
+          const data   = await apiService.getDomicilio(this.state.poblacion, tipoVia);
+          const sorted = [...data].sort((a, b) => a.localeCompare(b, 'es'));
+          this._acVia.setData(sorted);
         } catch (err) {
           debug('onTipoViaChange error:', err);
           ui.setError('err-tipo-via', this.formatError(err, 'cargar las vías'));
@@ -498,40 +816,10 @@
         }
       },
 
-      _renderVias(vias) {
-        const sel = document.getElementById('sel-via');
-        sel.innerHTML = '<option value="">Seleccione una vía...</option>';
-        for (const v of vias) {
-          const opt = document.createElement('option');
-          opt.value = opt.textContent = v;
-          sel.appendChild(opt);
-        }
-        sel.disabled = false;
-      },
-
-      onViaFilter(text) {
-        const currentVia = document.getElementById('sel-via').value;
-        const lower      = text.trim().toLowerCase();
-        const filtered   = lower
-          ? this.state.allVias.filter(v => v.toLowerCase().includes(lower))
-          : this.state.allVias;
-        this._renderVias(filtered);
-        if (currentVia && filtered.includes(currentVia)) {
-          document.getElementById('sel-via').value = currentVia;
-        } else if (currentVia) {
-          this.state.via = '';
-          ui.resetFrom(3);
-          document.getElementById('sel-via').disabled    = false;
-          document.getElementById('filter-via').disabled = false;
-        }
-      },
-
       async onViaChange(via) {
         this.state.via = via;
         ui.resetFrom(3);
         if (!via) return;
-        document.getElementById('sel-via').disabled    = false;
-        document.getElementById('filter-via').disabled = false;
         ui.spinner(true);
         try {
           const data   = await apiService.getNumero(this.state.poblacion, this.state.tipoVia, via);
@@ -554,25 +842,11 @@
         if (!numero) return;
         ui.spinner(true);
         try {
-          const data    = await apiService.getPisos(this.state.poblacion, this.state.tipoVia, this.state.via, numero);
-          const selPiso = document.getElementById('sel-piso');
-          if (data && data.length > 0) {
-            selPiso.innerHTML = '<option value="">Sin filtrar por piso (todos)</option>';
-            for (const p of data) {
-              const opt = document.createElement('option');
-              opt.value = opt.textContent = p;
-              selPiso.appendChild(opt);
-            }
-            selPiso.disabled = false;
-          } else {
-            selPiso.innerHTML = '<option value="">Sin pisos disponibles</option>';
-            selPiso.disabled  = true;
-          }
+          const data   = await apiService.getPisos(this.state.poblacion, this.state.tipoVia, this.state.via, numero);
+          const fields = this.getNextFields(data);
+          fields.forEach(fieldDef => ui.renderDynamicStep(fieldDef));
         } catch (err) {
-          debug('onNumeroChange (pisos) error — no bloqueante:', err);
-          const selPiso     = document.getElementById('sel-piso');
-          selPiso.innerHTML = '<option value="">No disponible</option>';
-          selPiso.disabled  = true;
+          debug('onNumeroChange (pisos) — no bloqueante:', err);
         } finally {
           ui.spinner(false);
           document.getElementById('btn-check').disabled = false;
@@ -581,8 +855,9 @@
 
       async onSubmit() {
         const { poblacion, tipoVia, via, numero } = this.state;
-        const piso = document.getElementById('sel-piso').value;
-        const btn  = document.getElementById('btn-check');
+        const pisoSel = document.getElementById('dyn-piso');
+        const piso    = pisoSel ? pisoSel.value : '';
+        const btn     = document.getElementById('btn-check');
 
         btn.disabled = true;
         ui.spinner(true);
@@ -603,21 +878,18 @@
       },
 
       onReset() {
-        this.state = { provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', piso: '', allVias: [] };
-        document.getElementById('sel-provincia').value = '';
+        const provinces = this.state._provinces;
+        this.state = { provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', _provinces: provinces };
+        this._acProvincia.setData(provinces);
         ui.resetFrom(0);
       },
     };
 
     // ─── EVENTOS ───────────────────────────────────────────────────────────────
-    document.getElementById('sel-provincia').addEventListener('change', e => app.onProvinciaChange(e.target.value));
-    document.getElementById('sel-poblacion').addEventListener('change', e => app.onPoblacionChange(e.target.value));
-    document.getElementById('sel-tipo-via') .addEventListener('change', e => app.onTipoViaChange(e.target.value));
-    document.getElementById('filter-via')   .addEventListener('input',  e => app.onViaFilter(e.target.value));
-    document.getElementById('sel-via')      .addEventListener('change', e => app.onViaChange(e.target.value));
-    document.getElementById('sel-numero')   .addEventListener('change', e => app.onNumeroChange(e.target.value));
-    document.getElementById('btn-check')    .addEventListener('click',  () => app.onSubmit());
-    document.getElementById('btn-reset')    .addEventListener('click',  () => app.onReset());
+    document.getElementById('sel-tipo-via').addEventListener('change', e => app.onTipoViaChange(e.target.value));
+    document.getElementById('sel-numero')  .addEventListener('change', e => app.onNumeroChange(e.target.value));
+    document.getElementById('btn-check')   .addEventListener('click',  () => app.onSubmit());
+    document.getElementById('btn-reset')   .addEventListener('click',  () => app.onReset());
 
     // ─── ARRANQUE ──────────────────────────────────────────────────────────────
     app.start();

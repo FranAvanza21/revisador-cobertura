@@ -45,10 +45,7 @@
       font-size: 0.875rem;
     }
     .ac-item:last-child { border-bottom: none; }
-    .ac-item:hover, .ac-item.active {
-      background-color: #0d6efd;
-      color: #fff;
-    }
+    .ac-item:hover, .ac-item.active { background-color: #0d6efd; color: #fff; }
     .result-expandable {
       overflow: hidden;
       transition: max-height 0.3s ease;
@@ -118,7 +115,7 @@
               <div id="err-numero" class="text-danger small mt-1" hidden></div>
             </div>
 
-            <!-- PASOS DINÁMICOS (piso, escalera, etc.) -->
+            <!-- PASOS DINÁMICOS: piso, bloque, escalera, planta, puerta… -->
             <div id="dynamic-steps"></div>
 
             <!-- SPINNER -->
@@ -163,14 +160,14 @@
   <script>
     /*
      * Edge-cases conocidos:
-     * 1. Pisos vacíos  → #dynamic-steps queda vacío; btn-check se habilita igual.
-     * 2. Múltiples registros → gescal37 de cada uno mostrado en la vista expandida.
-     * 3. Sin campo estado → trata como "Dirección encontrada" (✅).
+     * 1. /Cobertura/Pisos vacío → no se renderiza piso; la precarga usa piso=''.
+     * 2. Precarga devuelve 404 → _baseResults=[], btn-check deshabilitado con mensaje.
+     * 3. Todos los registros comparten el mismo valor en un campo → ese campo no se muestra.
      * 4. Autocomplete blur con texto inválido → error de validación, la cascada no avanza.
      * 5. "Ver más" expandido al lanzar nueva búsqueda → el panel se contrae automáticamente.
-     * 6. Proxy UUII no disponible → degradación silenciosa (detail = null), UI sigue operativa.
-     * 7. Un solo registro → no muestra badge de conteo.
-     * 8. gescal37 nulo → no muestra el bloque "Copiar ID" en la vista resumida.
+     * 6. Proxy UUII no disponible → degradación silenciosa (detail = null).
+     * 7. Al cambiar piso se rehace la precarga y se recalculan los filtros cliente.
+     * 8. onSubmit usa los resultados ya filtrados en memoria; no hay segunda llamada API.
      */
 
     // ─── CONFIGURACIÓN ─────────────────────────────────────────────────────────
@@ -180,6 +177,9 @@
 
     const ESTADOS_CON_COBERTURA = ['ACTIVO', 'DISPONIBLE', 'CON COBERTURA', 'LIBERADO', 'SI', 'COMERCIALIZABLE'];
     const ESTADOS_SIN_COBERTURA = ['INACTIVO', 'SIN COBERTURA', 'NO COBERTURA', 'BAJA', 'ANULADO', 'NO'];
+
+    // Orden en que se ofrecen los filtros cliente tras número/piso
+    const DYNAMIC_FILTER_ORDER = ['bloque', 'escalera', 'planta', 'puerta', 'letra', 'portalPuerta'];
 
     const FIELD_LABELS = {
       id:              'ID interno',
@@ -242,7 +242,7 @@
       input.id           = containerId.replace('-container', '-input');
 
       const dropdown = document.createElement('ul');
-      dropdown.className    = 'ac-dropdown';
+      dropdown.className     = 'ac-dropdown';
       dropdown.style.display = 'none';
 
       container.appendChild(input);
@@ -293,9 +293,7 @@
         renderDropdown(getFiltered());
       });
 
-      input.addEventListener('focus', () => {
-        renderDropdown(getFiltered());
-      });
+      input.addEventListener('focus', () => renderDropdown(getFiltered()));
 
       input.addEventListener('blur', () => {
         setTimeout(() => {
@@ -314,11 +312,7 @@
 
       input.addEventListener('keydown', e => {
         const items = dropdown.querySelectorAll('.ac-item');
-        if (e.key === 'Escape') {
-          dropdown.style.display = 'none';
-          _activeIndex = -1;
-          return;
-        }
+        if (e.key === 'Escape') { dropdown.style.display = 'none'; _activeIndex = -1; return; }
         if (e.key === 'ArrowDown') {
           e.preventDefault();
           if (dropdown.style.display === 'none') renderDropdown(getFiltered());
@@ -454,6 +448,7 @@
         }
         if (fromStep <= 4) { this.resetDynamicSteps(); }
         document.getElementById('btn-check').disabled = true;
+        document.getElementById('btn-check').textContent = 'Comprobar cobertura';
         document.getElementById('col-result').hidden  = true;
       },
 
@@ -506,8 +501,10 @@
         const sel = document.createElement('select');
         sel.id        = `dyn-${fieldDef.fieldName}`;
         sel.className = 'form-select';
-        const defaultLabel = `Sin filtrar por ${fieldDef.label.toLowerCase()} (todos)`;
-        sel.innerHTML = `<option value="">${defaultLabel}</option>`;
+        const allLabel = fieldDef.optional
+          ? `Sin filtrar por ${fieldDef.label.toLowerCase()} (todos)`
+          : `Seleccione ${fieldDef.label.toLowerCase()}...`;
+        sel.innerHTML = `<option value="">${allLabel}</option>`;
         for (const item of fieldDef.data) {
           const opt = document.createElement('option');
           opt.value = opt.textContent = item;
@@ -537,7 +534,8 @@
         const countBadge = data.length > 1
           ? `<span class="badge bg-secondary ms-1">${data.length} registros</span>` : '';
 
-        const parts   = [first.tipoVia, first.via, first.numero].filter(Boolean);
+        const parts  = [first.tipoVia, first.via, first.numero, first.bloque, first.escalera, first.planta, first.puerta]
+          .filter(Boolean);
         const address = escapeHtml(parts.join(' '));
         const ciudad  = first.poblacion ? ` &mdash; ${escapeHtml(first.poblacion)}` : '';
 
@@ -651,15 +649,14 @@
           toggleBtn.addEventListener('click', () => {
             const isCollapsed = expandableEl.classList.contains('collapsed');
             expandableEl.classList.toggle('collapsed', !isCollapsed);
-            expandableEl.classList.toggle('expanded', isCollapsed);
+            expandableEl.classList.toggle('expanded',  isCollapsed);
             toggleBtn.textContent = isCollapsed ? 'Ver menos ▴' : 'Ver más información ▾';
           });
         }
       },
 
       showResultError(msg) {
-        const colResult = document.getElementById('col-result');
-        colResult.hidden = false;
+        document.getElementById('col-result').hidden = false;
         document.getElementById('result-expandable').classList.remove('expanded');
         document.getElementById('result-expandable').classList.add('collapsed');
         document.getElementById('result-summary').innerHTML =
@@ -670,7 +667,12 @@
 
     // ─── APP ───────────────────────────────────────────────────────────────────
     const app = {
-      state: { provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', _provinces: [] },
+      state: {
+        provincia: '', poblacion: '', tipoVia: '', via: '', numero: '',
+        _provinces:    [],   // lista de provincias (para restaurar en onReset)
+        _baseResults:  [],   // resultados de /Cobertura para el número+piso actual
+        _activeFilters: {},  // filtros cliente activos: { fieldName: value }
+      },
       _acProvincia: null,
       _acPoblacion: null,
       _acVia:       null,
@@ -683,15 +685,78 @@
         return `Error ${err.status} al ${accion}.`;
       },
 
-      getNextFields(pisosData) {
-        if (!pisosData || !pisosData.length) return [];
-        return [{
-          fieldName: 'piso',
-          label:     'Piso',
-          stepNum:   5,
-          data:      pisosData,
-          optional:  true,
-        }];
+      // Aplica _activeFilters sobre _baseResults
+      _getFilteredResults() {
+        return this.state._baseResults.filter(rec =>
+          Object.entries(this.state._activeFilters).every(
+            ([k, v]) => !v || String(rec[k] ?? '') === String(v)
+          )
+        );
+      },
+
+      // Renderiza los pasos de filtro cliente para DYNAMIC_FILTER_ORDER
+      // a partir de fromIndex, usando los datos de `results`
+      _renderClientFilters(results, fromIndex, startStepNum) {
+        DYNAMIC_FILTER_ORDER.slice(fromIndex).forEach((field, i) => {
+          const vals = [...new Set(results.map(r => r[field]).filter(v => v !== null && v !== undefined && v !== ''))]
+            .sort((a, b) => String(a).localeCompare(String(b), 'es'));
+          if (vals.length <= 1) return; // sin variación → no se muestra
+          const sel = ui.renderDynamicStep({
+            fieldName: field,
+            label:     FIELD_LABELS[field] || field,
+            stepNum:   startStepNum + i,
+            data:      vals,
+            optional:  false,
+          });
+          sel.addEventListener('change', e => this.onDynFilterChange(field, e.target.value));
+        });
+      },
+
+      // Elimina del DOM los pasos dinámicos que vienen DESPUÉS de afterField
+      _clearClientFiltersAfter(afterField) {
+        const container = document.getElementById('dynamic-steps');
+        const afterIdx  = DYNAMIC_FILTER_ORDER.indexOf(afterField);
+        DYNAMIC_FILTER_ORDER.slice(afterIdx + 1).forEach(field => {
+          const el = container.querySelector(`[data-field="${field}"]`);
+          if (el) el.remove();
+          delete this.state._activeFilters[field];
+        });
+      },
+
+      // Actualiza el texto/estado del botón según cuántos resultados quedan
+      _updateCheckButton(count) {
+        const btn = document.getElementById('btn-check');
+        if (count === 0) {
+          btn.disabled    = true;
+          btn.textContent = 'Sin resultados para este filtro';
+        } else {
+          btn.disabled    = false;
+          btn.textContent = count === 1
+            ? 'Comprobar cobertura'
+            : `Comprobar cobertura (${count} resultados)`;
+        }
+      },
+
+      // Precarga /Cobertura con el piso dado, calcula los filtros cliente y
+      // actualiza el botón. El spinner ya debe estar activo al llamar a este método.
+      async _loadBaseResults(piso) {
+        const { poblacion, tipoVia, via, numero } = this.state;
+        try {
+          const data = await apiService.getCobertura(poblacion, tipoVia, via, numero, piso);
+          this.state._baseResults   = data || [];
+          this.state._activeFilters = {};
+          // El piso ocupa el paso 5; los filtros cliente empiezan en el 6
+          this._renderClientFilters(this.state._baseResults, 0, 6);
+          this._updateCheckButton(this.state._baseResults.length);
+        } catch (err) {
+          if (err.status === 404) {
+            this.state._baseResults = [];
+            this._updateCheckButton(0);
+          } else {
+            debug('_loadBaseResults error:', err);
+            ui.setError('err-numero', this.formatError(err, 'cargar los datos de cobertura'));
+          }
+        }
       },
 
       async start() {
@@ -765,6 +830,8 @@
       async onProvinciaChange(provincia) {
         this.state.provincia = provincia;
         ui.resetFrom(0);
+        this.state._baseResults  = [];
+        this.state._activeFilters = {};
         if (!provincia) return;
         ui.spinner(true);
         try {
@@ -785,6 +852,8 @@
       async onPoblacionChange(poblacion) {
         this.state.poblacion = poblacion;
         ui.resetFrom(1);
+        this.state._baseResults  = [];
+        this.state._activeFilters = {};
         if (!poblacion) return;
         ui.spinner(true);
         try {
@@ -802,6 +871,8 @@
       async onTipoViaChange(tipoVia) {
         this.state.tipoVia = tipoVia;
         ui.resetFrom(2);
+        this.state._baseResults  = [];
+        this.state._activeFilters = {};
         if (!tipoVia) return;
         ui.spinner(true);
         try {
@@ -819,6 +890,8 @@
       async onViaChange(via) {
         this.state.via = via;
         ui.resetFrom(3);
+        this.state._baseResults  = [];
+        this.state._activeFilters = {};
         if (!via) return;
         ui.spinner(true);
         try {
@@ -839,33 +912,89 @@
       async onNumeroChange(numero) {
         this.state.numero = numero;
         ui.resetFrom(4);
+        this.state._baseResults  = [];
+        this.state._activeFilters = {};
         if (!numero) return;
+
         ui.spinner(true);
         try {
-          const data   = await apiService.getPisos(this.state.poblacion, this.state.tipoVia, this.state.via, numero);
-          const fields = this.getNextFields(data);
-          fields.forEach(fieldDef => ui.renderDynamicStep(fieldDef));
-        } catch (err) {
-          debug('onNumeroChange (pisos) — no bloqueante:', err);
+          // Cargar pisos (fallo no bloqueante)
+          let pisos = [];
+          try {
+            pisos = await apiService.getPisos(
+              this.state.poblacion, this.state.tipoVia, this.state.via, numero
+            );
+          } catch (e) { debug('getPisos fallo (no bloqueante):', e); }
+
+          if (pisos.length > 0) {
+            const sel = ui.renderDynamicStep({
+              fieldName: 'piso',
+              label:     'Piso',
+              stepNum:   5,
+              data:      pisos,
+              optional:  true,
+            });
+            sel.addEventListener('change', e => this.onPisoChange(e.target.value));
+          }
+
+          // Precarga de cobertura (sin piso) para calcular filtros cliente
+          await this._loadBaseResults('');
         } finally {
           ui.spinner(false);
-          document.getElementById('btn-check').disabled = false;
         }
       },
 
+      // El usuario cambia el selector de Piso (paso dinámico 5)
+      async onPisoChange(piso) {
+        // Eliminar filtros cliente y re-cargar con el nuevo piso
+        DYNAMIC_FILTER_ORDER.forEach(field => {
+          const el = document.querySelector(`#dynamic-steps [data-field="${field}"]`);
+          if (el) el.remove();
+          delete this.state._activeFilters[field];
+        });
+        ui.spinner(true);
+        try {
+          await this._loadBaseResults(piso);
+        } finally {
+          ui.spinner(false);
+        }
+      },
+
+      // El usuario cambia un filtro cliente (escalera, puerta, planta…)
+      onDynFilterChange(fieldName, value) {
+        this.state._activeFilters[fieldName] = value;
+        // Eliminar pasos posteriores y sus filtros
+        this._clearClientFiltersAfter(fieldName);
+        // Aplicar todos los filtros activos
+        const filtered = this._getFilteredResults();
+        // Calcular el stepNum del siguiente paso
+        const fieldIdx    = DYNAMIC_FILTER_ORDER.indexOf(fieldName);
+        const pisoStep    = document.querySelector('#dynamic-steps [data-field="piso"]') ? 1 : 0;
+        const startStep   = 6 + pisoStep + fieldIdx;
+        // Renderizar siguientes filtros si hay más variación
+        this._renderClientFilters(filtered, fieldIdx + 1, startStep);
+        this._updateCheckButton(filtered.length);
+      },
+
       async onSubmit() {
-        const { poblacion, tipoVia, via, numero } = this.state;
-        const pisoSel = document.getElementById('dyn-piso');
-        const piso    = pisoSel ? pisoSel.value : '';
-        const btn     = document.getElementById('btn-check');
+        const filtered = this._getFilteredResults();
+        const btn      = document.getElementById('btn-check');
 
         btn.disabled = true;
         ui.spinner(true);
         document.getElementById('col-result').hidden = true;
 
         try {
-          const data = await apiService.getCobertura(poblacion, tipoVia, via, numero, piso);
-          await ui.showResult(data);
+          if (this.state._baseResults.length > 0) {
+            await ui.showResult(filtered.length > 0 ? filtered : this.state._baseResults);
+          } else {
+            // Fallback: llamada directa si la precarga falló
+            const { poblacion, tipoVia, via, numero } = this.state;
+            const pisoSel = document.getElementById('dyn-piso');
+            const piso    = pisoSel ? pisoSel.value : '';
+            const data    = await apiService.getCobertura(poblacion, tipoVia, via, numero, piso);
+            await ui.showResult(data);
+          }
         } catch (err) {
           debug('onSubmit error:', err);
           err.status === 404
@@ -879,7 +1008,12 @@
 
       onReset() {
         const provinces = this.state._provinces;
-        this.state = { provincia: '', poblacion: '', tipoVia: '', via: '', numero: '', _provinces: provinces };
+        this.state = {
+          provincia: '', poblacion: '', tipoVia: '', via: '', numero: '',
+          _provinces:    provinces,
+          _baseResults:  [],
+          _activeFilters: {},
+        };
         this._acProvincia.setData(provinces);
         ui.resetFrom(0);
       },

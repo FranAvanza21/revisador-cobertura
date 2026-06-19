@@ -182,6 +182,7 @@
     const DYNAMIC_FILTER_ORDER = ['bloque', 'escalera', 'planta', 'puerta', 'letra', 'portalPuerta'];
 
     const FIELD_LABELS = {
+      cp:              'Código Postal',
       id:              'ID interno',
       idUUII:          'ID UUII',
       gescal37:        'ID de Domicilio',
@@ -537,7 +538,8 @@
         const parts  = [first.tipoVia, first.via, first.numero, first.bloque, first.escalera, first.planta, first.puerta]
           .filter(Boolean);
         const address = escapeHtml(parts.join(' '));
-        const ciudad  = first.poblacion ? ` &mdash; ${escapeHtml(first.poblacion)}` : '';
+        const cpStr   = first.cp ? ` ${escapeHtml(first.cp)}` : '';
+        const ciudad  = first.poblacion ? ` &mdash;${cpStr} ${escapeHtml(first.poblacion)}` : cpStr;
 
         let altaDobleHtml = '';
         if (detail && detail.alta_doble) {

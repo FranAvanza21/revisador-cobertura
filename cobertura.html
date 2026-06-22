@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Comprobador de Cobertura</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <script src="config.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="config.js?v=2"></script>
   <style>
     .step-badge {
       display: inline-flex;
@@ -61,8 +62,9 @@
       <!-- COLUMNA IZQUIERDA: FORMULARIO -->
       <div class="col-12 col-lg-6">
         <div id="panel-main" class="card shadow-sm">
-          <div class="card-header bg-primary text-white">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <strong>Comprobador de Cobertura de Red</strong>
+            <a id="link-suscripciones" href="#" target="_blank" class="btn btn-sm btn-light text-primary fw-semibold">Suscripciones</a>
           </div>
           <div class="card-body">
 
@@ -131,6 +133,16 @@
               </button>
             </div>
 
+            <!-- BOTÓN SUSCRIPCIÓN -->
+            <div class="text-center mt-3">
+              <span class="badge bg-warning text-dark">En desarrollo</span>
+            </div>
+            <div class="d-grid mt-1">
+              <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modal-subscripcion">
+                Suscripción
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
@@ -157,6 +169,112 @@
     </div>
   </div>
 
+  <!-- MODAL SUSCRIPCIÓN -->
+  <div class="modal fade" id="modal-subscripcion" tabindex="-1" aria-labelledby="modal-subscripcion-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modal-subscripcion-label">Suscripción</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">Introduzca los datos de la dirección para la que desea recibir notificaciones. Todos los campos son opcionales.</p>
+          <form id="form-subscripcion" novalidate>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Provincia</label>
+              <div id="sub-ac-provincia-container" class="ac-wrapper"></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Población</label>
+              <div id="sub-ac-poblacion-container" class="ac-wrapper"></div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label fw-semibold">Tipo de Vía</label>
+                <div id="sub-ac-tipo-via-container" class="ac-wrapper"></div>
+              </div>
+              <div class="col-md-8 mb-3">
+                <label class="form-label fw-semibold">Vía</label>
+                <div id="sub-ac-via-container" class="ac-wrapper"></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label for="sub-numero" class="form-label fw-semibold">Número</label>
+                <input type="text" class="form-control" id="sub-numero" placeholder="Ej. 10">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="sub-piso" class="form-label fw-semibold">Piso</label>
+                <input type="text" class="form-control" id="sub-piso" placeholder="Ej. 3">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="sub-bloque" class="form-label fw-semibold">Bloque</label>
+                <input type="text" class="form-control" id="sub-bloque" placeholder="Ej. A">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label for="sub-escalera" class="form-label fw-semibold">Escalera</label>
+                <input type="text" class="form-control" id="sub-escalera" placeholder="Ej. 1">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="sub-planta" class="form-label fw-semibold">Planta</label>
+                <input type="text" class="form-control" id="sub-planta" placeholder="Ej. 2">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="sub-puerta" class="form-label fw-semibold">Puerta</label>
+                <input type="text" class="form-control" id="sub-puerta" placeholder="Ej. A">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="sub-letra" class="form-label fw-semibold">Letra</label>
+                <input type="text" class="form-control" id="sub-letra">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="sub-portal-puerta" class="form-label fw-semibold">Portal / Puerta</label>
+                <input type="text" class="form-control" id="sub-portal-puerta">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="sub-comentario" class="form-label fw-semibold">Comentario</label>
+              <textarea class="form-control" id="sub-comentario" rows="3" placeholder="Añada cualquier observación o detalle adicional..."></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="sub-fotos" class="form-label fw-semibold">Fotos</label>
+              <input type="file" class="form-control" id="sub-fotos" accept="image/*" multiple>
+              <div class="form-text">Puede adjuntar una o varias imágenes (JPG, PNG, WEBP…).</div>
+            </div>
+            <div class="mb-1">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label fw-semibold mb-0">Ubicación</label>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-sub-buscar-dir" title="Centrar el mapa en la dirección introducida">🔍 Buscar en mapa</button>
+              </div>
+              <div class="form-text mb-2">Haga clic en el mapa para fijar la ubicación exacta.</div>
+              <div id="sub-mapa" style="height:280px;border-radius:0.375rem;border:1px solid #dee2e6;"></div>
+              <div id="sub-coords-display" class="mt-1 small text-muted" hidden>
+                📍 <a id="sub-coords-link" href="#" target="_blank" rel="noopener noreferrer" class="text-muted" title="Abrir en Google Maps"><span id="sub-coords-text"></span> 🗺️</a>
+                <button type="button" class="btn btn-link btn-sm p-0 ms-2 text-danger" id="btn-sub-clear-marker">Eliminar marcador</button>
+              </div>
+              <input type="hidden" id="sub-lat">
+              <input type="hidden" id="sub-lng">
+            </div>
+          </form>
+          <div id="sub-success" class="alert alert-success mt-2" hidden>
+            ✅ Suscripción registrada correctamente.
+          </div>
+          <div id="sub-error" class="alert alert-danger mt-2" hidden></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-sub-confirmar">Confirmar suscripción</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     /*
      * Edge-cases conocidos:
@@ -171,9 +289,17 @@
      */
 
     // ─── CONFIGURACIÓN ─────────────────────────────────────────────────────────
-    const BASE_URL   = (typeof SIA_API_URL !== 'undefined') ? SIA_API_URL : '';
-    const API_TOKEN  = '';
-    const DEBUG_MODE = false;
+    const BASE_URL    = (typeof SIA_API_URL   !== 'undefined') ? SIA_API_URL   : '';
+    const SUBS_URL    = (typeof SUBS_API_URL  !== 'undefined') ? SUBS_API_URL  : '';
+    const SUBS_KEY    = (typeof SUBS_API_KEY  !== 'undefined') ? SUBS_API_KEY  : '';
+    const API_TOKEN   = '';
+    const DEBUG_MODE  = false;
+
+    // Enlace a la página de suscripciones
+    if (SUBS_URL) {
+      const linkEl = document.getElementById('link-suscripciones');
+      if (linkEl) linkEl.href = SUBS_URL;
+    }
 
     const ESTADOS_CON_COBERTURA = ['ACTIVO', 'DISPONIBLE', 'CON COBERTURA', 'LIBERADO', 'SI', 'COMERCIALIZABLE'];
     const ESTADOS_SIN_COBERTURA = ['INACTIVO', 'SIN COBERTURA', 'NO COBERTURA', 'BAJA', 'ANULADO', 'NO'];
@@ -1048,6 +1174,259 @@
     document.getElementById('sel-numero')  .addEventListener('change', e => app.onNumeroChange(e.target.value));
     document.getElementById('btn-check')   .addEventListener('click',  () => app.onSubmit());
     document.getElementById('btn-reset')   .addEventListener('click',  () => app.onReset());
+
+    // ─── SUSCRIPCIÓN ───────────────────────────────────────────────────────────
+    let _subMap         = null;
+    let _subMarker      = null;
+    let _subAcProvincia = null;
+    let _subAcPoblacion = null;
+    let _subAcTipoVia   = null;
+    let _subAcVia       = null;
+
+    function _subInputVal(id) {
+      return document.getElementById(id)?.value.trim() || '';
+    }
+
+    function _subClearMarker() {
+      if (_subMarker) { _subMarker.remove(); _subMarker = null; }
+      document.getElementById('sub-lat').value            = '';
+      document.getElementById('sub-lng').value            = '';
+      document.getElementById('sub-coords-display').hidden = true;
+    }
+
+    document.getElementById('modal-subscripcion').addEventListener('shown.bs.modal', () => {
+      // ── Autocomplete de dirección ──────────────────────────────────────────
+      if (!_subAcProvincia) {
+        _subAcProvincia = buildAutocomplete({
+          containerId: 'sub-ac-provincia-container',
+          data: [],
+          placeholder: 'Buscar provincia...',
+          errId: null,
+          onSelect: async v => {
+            _subAcPoblacion.setData([]);
+            _subAcTipoVia.setData([]);
+            _subAcVia.setData([]);
+            if (!v) return;
+            ui.spinner(true);
+            try {
+              const data  = await apiService.getPoblaciones(v);
+              const items = (data.length > 0 && typeof data[0] === 'string')
+                ? [...new Set(data)].sort((a, b) => a.localeCompare(b, 'es'))
+                : [...new Set(data.map(d => d.poblacion || d.Poblacion).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+              _subAcPoblacion.setData(items);
+            } catch(e) { debug('sub-provincia error:', e); }
+            finally { ui.spinner(false); }
+          },
+        });
+
+        _subAcPoblacion = buildAutocomplete({
+          containerId: 'sub-ac-poblacion-container',
+          data: [],
+          placeholder: 'Buscar población...',
+          errId: null,
+          onSelect: async v => {
+            _subAcTipoVia.setData([]);
+            _subAcVia.setData([]);
+            if (!v) return;
+            ui.spinner(true);
+            try {
+              const data   = await apiService.getTipoVia(v);
+              const sorted = [...data].sort((a, b) => a.localeCompare(b, 'es'));
+              _subAcTipoVia.setData(sorted);
+            } catch(e) { debug('sub-poblacion error:', e); }
+            finally { ui.spinner(false); }
+          },
+        });
+
+        _subAcTipoVia = buildAutocomplete({
+          containerId: 'sub-ac-tipo-via-container',
+          data: [],
+          placeholder: 'Buscar tipo de vía...',
+          errId: null,
+          onSelect: async v => {
+            _subAcVia.setData([]);
+            if (!v) return;
+            const pobl = _subInputVal('sub-ac-poblacion-input');
+            if (!pobl) return;
+            ui.spinner(true);
+            try {
+              const data   = await apiService.getDomicilio(pobl, v);
+              const sorted = [...data].sort((a, b) => a.localeCompare(b, 'es'));
+              _subAcVia.setData(sorted);
+            } catch(e) { debug('sub-tipoVia error:', e); }
+            finally { ui.spinner(false); }
+          },
+        });
+
+        _subAcVia = buildAutocomplete({
+          containerId: 'sub-ac-via-container',
+          data: [],
+          placeholder: 'Buscar vía...',
+          errId: null,
+          onSelect: () => {},
+        });
+
+        // Habilitamos todos desde el inicio (setData([]) activa el input)
+        _subAcPoblacion.setData([]);
+        _subAcTipoVia.setData([]);
+        _subAcVia.setData([]);
+      }
+
+      // Refresca provincias con los datos actuales (ya cargados en el form principal)
+      _subAcProvincia.setData(app.state._provinces || []);
+
+      // ── Mapa ───────────────────────────────────────────────────────────────
+      if (!_subMap) {
+        _subMap = L.map('sub-mapa').setView([40.4168, -3.7038], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxZoom: 19,
+        }).addTo(_subMap);
+        _subMap.on('click', e => {
+          const { lat, lng } = e.latlng;
+          if (_subMarker) _subMarker.setLatLng(e.latlng);
+          else            _subMarker = L.marker(e.latlng, { draggable: true }).addTo(_subMap);
+          _subMarker.on('dragend', ev => {
+            const p = ev.target.getLatLng();
+            document.getElementById('sub-lat').value       = p.lat.toFixed(6);
+            document.getElementById('sub-lng').value       = p.lng.toFixed(6);
+            document.getElementById('sub-coords-text').textContent = `${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`;
+            document.getElementById('sub-coords-link').href = `https://www.google.com/maps?q=${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+          });
+          document.getElementById('sub-lat').value             = lat.toFixed(6);
+          document.getElementById('sub-lng').value             = lng.toFixed(6);
+          document.getElementById('sub-coords-text').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          document.getElementById('sub-coords-link').href = `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
+          document.getElementById('sub-coords-display').hidden  = false;
+        });
+      } else {
+        _subMap.invalidateSize();
+      }
+    });
+
+    document.getElementById('btn-sub-clear-marker').addEventListener('click', _subClearMarker);
+
+    document.getElementById('btn-sub-buscar-dir').addEventListener('click', async () => {
+      const tipoVia   = _subInputVal('sub-ac-tipo-via-input');
+      const via       = _subInputVal('sub-ac-via-input');
+      const numero    = document.getElementById('sub-numero').value.trim();
+      const poblacion = _subInputVal('sub-ac-poblacion-input');
+      const provincia = _subInputVal('sub-ac-provincia-input');
+
+      const callejero = [tipoVia, via, numero].filter(Boolean).join(' ');
+      const query     = [callejero, poblacion, provincia, 'España'].filter(Boolean).join(', ');
+
+      if (!callejero && !poblacion && !provincia) return;
+
+      const btn = document.getElementById('btn-sub-buscar-dir');
+      btn.disabled = true;
+      btn.textContent = '⏳ Buscando…';
+
+      try {
+        const res  = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+
+        if (!data.length) {
+          btn.textContent = '❌ No encontrado';
+          setTimeout(() => { btn.disabled = false; btn.textContent = '🔍 Buscar en mapa'; }, 2000);
+          return;
+        }
+
+        const latN = parseFloat(data[0].lat);
+        const lngN = parseFloat(data[0].lon);
+        _subMap.setView([latN, lngN], 16);
+      } catch (_) { /* red o CORS: ignorar */ }
+
+      btn.disabled = false;
+      btn.textContent = '🔍 Buscar en mapa';
+    });
+
+    document.getElementById('btn-sub-confirmar').addEventListener('click', async () => {
+      const btn       = document.getElementById('btn-sub-confirmar');
+      const errEl     = document.getElementById('sub-error');
+      btn.disabled    = true;
+      btn.textContent = 'Enviando…';
+      if (errEl) errEl.hidden = true;
+
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (SUBS_KEY) headers['Authorization'] = `Bearer ${SUBS_KEY}`;
+
+        // Subir fotos al servidor antes de crear la suscripción
+        const fotoFiles = [...document.getElementById('sub-fotos').files];
+        const fotos = await Promise.all(fotoFiles.map(async file => {
+          const base64 = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = e => res(e.target.result.split(',')[1]);
+            r.onerror = rej;
+            r.readAsDataURL(file);
+          });
+          const up = await fetch(`${SUBS_URL}/api/upload`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ filename: file.name, base64 }),
+          });
+          if (!up.ok) throw new Error(`Error subiendo ${file.name}: HTTP ${up.status}`);
+          return file.name;
+        }));
+
+        const payload = {
+          provincia:    _subInputVal('sub-ac-provincia-input'),
+          poblacion:    _subInputVal('sub-ac-poblacion-input'),
+          tipoVia:      _subInputVal('sub-ac-tipo-via-input'),
+          via:          _subInputVal('sub-ac-via-input'),
+          numero:       document.getElementById('sub-numero').value.trim(),
+          piso:         document.getElementById('sub-piso').value.trim(),
+          bloque:       document.getElementById('sub-bloque').value.trim(),
+          escalera:     document.getElementById('sub-escalera').value.trim(),
+          planta:       document.getElementById('sub-planta').value.trim(),
+          puerta:       document.getElementById('sub-puerta').value.trim(),
+          letra:        document.getElementById('sub-letra').value.trim(),
+          portalPuerta: document.getElementById('sub-portal-puerta').value.trim(),
+          comentario:   document.getElementById('sub-comentario').value.trim(),
+          fotos,
+          lat:          document.getElementById('sub-lat').value,
+          lng:          document.getElementById('sub-lng').value,
+        };
+        debug('Enviando suscripción:', payload);
+
+        const resp = await fetch(`${SUBS_URL}/api/suscripciones`, {
+          method:  'POST',
+          headers,
+          body:    JSON.stringify(payload),
+        });
+        if (!resp.ok) throw new Error(`Error ${resp.status} del servidor`);
+
+        document.getElementById('sub-success').hidden = false;
+        document.getElementById('form-subscripcion').reset();
+        if (_subAcProvincia) {
+          [_subAcProvincia, _subAcPoblacion, _subAcTipoVia, _subAcVia].forEach(ac => ac.reset());
+          _subAcPoblacion.setData([]); _subAcTipoVia.setData([]); _subAcVia.setData([]);
+        }
+        _subClearMarker();
+        setTimeout(() => {
+          document.getElementById('sub-success').hidden = true;
+          bootstrap.Modal.getInstance(document.getElementById('modal-subscripcion')).hide();
+        }, 1500);
+      } catch (e) {
+        debug('Error al enviar suscripción:', e);
+        if (errEl) { errEl.textContent = `No se pudo enviar: ${e.message}`; errEl.hidden = false; }
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Confirmar suscripción';
+      }
+    });
+
+    document.getElementById('modal-subscripcion').addEventListener('hidden.bs.modal', () => {
+      document.getElementById('sub-success').hidden = true;
+      document.getElementById('sub-error').hidden   = true;
+      if (_subAcProvincia) {
+        [_subAcProvincia, _subAcPoblacion, _subAcTipoVia, _subAcVia].forEach(ac => ac.reset());
+        // Mantener habilitados los que no dependen de nada (se rellenarán en shown)
+        _subAcPoblacion.setData([]);
+        _subAcTipoVia.setData([]);
+        _subAcVia.setData([]);
+      }
+    });
 
     // ─── ARRANQUE ──────────────────────────────────────────────────────────────
     app.start();

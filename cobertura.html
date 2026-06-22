@@ -1346,11 +1346,24 @@
         if (SUBS_KEY) headers['Authorization'] = `Bearer ${SUBS_KEY}`;
 
         const fotoFiles = [...document.getElementById('sub-fotos').files];
-        const fotos = await Promise.all(fotoFiles.map(file => new Promise((res, rej) => {
-          const r = new FileReader();
-          r.onload = e => res({ nombre: file.name, base64: e.target.result.split(',')[1], tipo: file.type });
-          r.onerror = rej;
-          r.readAsDataURL(file);
+        const fotos = await Promise.all(fotoFiles.map(file => new Promise((resolve, reject) => {
+          const img = new Image();
+          const objUrl = URL.createObjectURL(file);
+          img.onload = () => {
+            const MAX = 1200, Q = 0.75;
+            let w = img.naturalWidth, h = img.naturalHeight;
+            if (w > MAX || h > MAX) {
+              if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+              else        { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(objUrl);
+            resolve(JSON.stringify({ n: file.name, d: c.toDataURL('image/jpeg', Q) }));
+          };
+          img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error(`No se pudo leer ${file.name}`)); };
+          img.src = objUrl;
         })));
 
         const payload = {

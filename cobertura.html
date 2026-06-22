@@ -1345,22 +1345,13 @@
         const headers = { 'Content-Type': 'application/json' };
         if (SUBS_KEY) headers['Authorization'] = `Bearer ${SUBS_KEY}`;
 
-        // Subir fotos al servidor antes de crear la suscripción
         const fotoFiles = [...document.getElementById('sub-fotos').files];
-        const fotos = await Promise.all(fotoFiles.map(async file => {
-          const base64 = await new Promise((res, rej) => {
-            const r = new FileReader();
-            r.onload = e => res(e.target.result.split(',')[1]);
-            r.onerror = rej;
-            r.readAsDataURL(file);
-          });
-          const up = await fetch(`${SUBS_URL}/api/upload`, {
-            method: 'POST', headers,
-            body: JSON.stringify({ filename: file.name, base64 }),
-          });
-          if (!up.ok) throw new Error(`Error subiendo ${file.name}: HTTP ${up.status}`);
-          return file.name;
-        }));
+        const fotos = await Promise.all(fotoFiles.map(file => new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = e => res({ nombre: file.name, base64: e.target.result.split(',')[1], tipo: file.type });
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        })));
 
         const payload = {
           provincia:    _subInputVal('sub-ac-provincia-input'),

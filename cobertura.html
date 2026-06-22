@@ -62,9 +62,8 @@
       <!-- COLUMNA IZQUIERDA: FORMULARIO -->
       <div class="col-12 col-lg-6">
         <div id="panel-main" class="card shadow-sm">
-          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <div class="card-header bg-primary text-white">
             <strong>Comprobador de Cobertura de Red</strong>
-            <a id="link-suscripciones" href="#" target="_blank" class="btn btn-sm btn-light text-primary fw-semibold">Suscripciones</a>
           </div>
           <div class="card-body">
 
@@ -294,12 +293,6 @@
     const SUBS_KEY    = (typeof SUBS_API_KEY  !== 'undefined') ? SUBS_API_KEY  : '';
     const API_TOKEN   = '';
     const DEBUG_MODE  = false;
-
-    // Enlace a la página de suscripciones
-    if (SUBS_URL) {
-      const linkEl = document.getElementById('link-suscripciones');
-      if (linkEl) linkEl.href = SUBS_URL;
-    }
 
     const ESTADOS_CON_COBERTURA = ['ACTIVO', 'DISPONIBLE', 'CON COBERTURA', 'LIBERADO', 'SI', 'COMERCIALIZABLE'];
     const ESTADOS_SIN_COBERTURA = ['INACTIVO', 'SIN COBERTURA', 'NO COBERTURA', 'BAJA', 'ANULADO', 'NO'];
